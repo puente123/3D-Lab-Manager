@@ -33,6 +33,7 @@ import {
   Visibility as ViewerIcon,
 } from '@mui/icons-material';
 import { getRoleDisplayName, getAllRoles } from '../../lib/permissions';
+import { getAllUsers, updateUserRole } from '../../lib/supabaseUsers';
 
 const UsersAdmin = () => {
   const [users, setUsers] = useState([]);
@@ -47,12 +48,24 @@ const UsersAdmin = () => {
   const fetchUsers = async () => {
     _setLoading(true);
     try {
-      const response = await fetch('/api/admin/users');
-      const data = await response.json();
-      if (data.success) {
-        setUsers(data.data);
-      }
-    } catch (_error) {
+      const profilesData = await getAllUsers();
+
+      // Map profiles data to UI format
+      const mappedUsers = profilesData.map(profile => {
+        const nameParts = profile.full_name?.split(' ') || ['', ''];
+
+        return {
+          id: profile.id,
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || '',
+          email: profile.email || 'N/A',
+          role: profile.role || 'student',
+        };
+      });
+
+      setUsers(mappedUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
       showSnackbar('Failed to load users', 'error');
     } finally {
       _setLoading(false);
@@ -77,19 +90,12 @@ const UsersAdmin = () => {
 
   const handleSubmit = async () => {
     try {
-      const response = await fetch(`/api/admin/users/${currentUser.id}/role`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        showSnackbar('User role updated successfully', 'success');
-        fetchUsers();
-        handleDialogClose();
-      }
-    } catch (_error) {
+      await updateUserRole(currentUser.id, newRole);
+      showSnackbar('User role updated successfully', 'success');
+      fetchUsers();
+      handleDialogClose();
+    } catch (error) {
+      console.error('Error updating user role:', error);
       showSnackbar('Failed to update user role', 'error');
     }
   };
@@ -154,7 +160,6 @@ const UsersAdmin = () => {
                 <TableCell>Name</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Role</TableCell>
-                <TableCell>Last Login</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -175,11 +180,6 @@ const UsersAdmin = () => {
                         color={getRoleColor(user.role)}
                         size="small"
                       />
-                    </TableCell>
-                    <TableCell>
-                      {user.lastLogin
-                        ? new Date(user.lastLogin).toLocaleDateString()
-                        : 'Never'}
                     </TableCell>
                     <TableCell align="right">
                       <Button

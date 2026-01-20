@@ -58,8 +58,12 @@ function TopNav() {
     { path: "/items", label: "Items", icon: <InventoryIcon /> },
     { path: "/map3d", label: "3D Map", icon: <ViewInArIcon /> },
     { path: "/scan", label: "Scan", icon: <QrCodeScannerIcon /> },
-    { path: "/admin", label: "Admin", icon: <AdminIcon /> },
   ];
+
+  // Add Admin link only for admin users
+  if (user?.role === "admin") {
+    navItems.push({ path: "/admin", label: "Admin", icon: <AdminIcon /> });
+  }
 
   // Get current tab value for controlled tabs
   const getCurrentTabValue = () => {

@@ -46,7 +46,7 @@ function ItemCard({ item }) {
       component={Link}
       to={`/item/${item.id}`}
       sx={{
-        height: 360, // Fixed height for consistency (reduced for 6 per row)
+        height: 420, // Increased height to show Amazon button completely
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -122,7 +122,7 @@ function ItemCard({ item }) {
           flexDirection: 'column',
           gap: 1,
           p: 2,
-          height: 240, // Fixed content height (reduced for smaller cards)
+          height: 300, // Increased to accommodate Amazon button
           overflow: 'hidden',
           flexShrink: 0
         }}

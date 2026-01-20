@@ -21,7 +21,7 @@ import {
   ReportProblem as ReportProblemIcon
 } from '@mui/icons-material';
 
-import { issuesApi } from '../lib/api';
+import { submitIssue } from '../lib/supabaseIssues';
 import { ISSUE_TYPES } from '../shared/types';
 
 /**
@@ -101,12 +101,12 @@ function IssueModal({
         notes: formData.notes.trim()
       };
 
-      await issuesApi.submitIssue(issueData);
+      await submitIssue(issueData);
 
       // Success - close modal and notify parent
       onClose();
       onSuccess?.({
-        message: 'Issue submitted. A TA will review it shortly.',
+        message: 'Issue submitted successfully. A TA will review it shortly.',
         type: 'success'
       });
 

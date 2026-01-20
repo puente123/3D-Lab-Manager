@@ -18,6 +18,7 @@ import {
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon,
   FilterList as FilterListIcon,
+  ShoppingCart as ShoppingCartIcon,
 } from "@mui/icons-material";
 
 // API and constants
@@ -630,6 +631,46 @@ function Items() {
                         {item.locationPath}
                       </Typography>
                     </Box>
+
+                    {/* Amazon Link Button (if available) */}
+                    {item.amazonLink && (
+                      <Box
+                        sx={{
+                          display: { xs: "none", lg: "block" },
+                          minWidth: 150,
+                        }}
+                      >
+                        <Box
+                          component="a"
+                          href={item.amazonLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()} // Prevent card click
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 0.5,
+                            py: 0.75,
+                            px: 1.5,
+                            backgroundColor: "#FF9900",
+                            color: "white",
+                            textDecoration: "none",
+                            borderRadius: 1,
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            transition: "all 0.2s",
+                            "&:hover": {
+                              backgroundColor: "#EC7211",
+                              transform: "translateY(-1px)",
+                            },
+                          }}
+                        >
+                          <ShoppingCartIcon sx={{ fontSize: "0.875rem" }} />
+                          View on Amazon
+                        </Box>
+                      </Box>
+                    )}
 
                     {/* Status and View Details */}
                     <Box

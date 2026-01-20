@@ -27,8 +27,6 @@ import {
   People as PeopleIcon,
   Science as ScienceIcon,
   ReportProblem as ReportProblemIcon,
-  Assessment as AssessmentIcon,
-  Settings as SettingsIcon,
   AccountCircle as AccountCircleIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
@@ -69,8 +67,6 @@ const AdminLayout = () => {
     { label: 'Users', path: '/admin/users', icon: <PeopleIcon />, permission: 'admin' },
     { label: 'Labs', path: '/admin/labs', icon: <ScienceIcon />, permission: 'labs.read' },
     { label: 'Issues', path: '/admin/issues', icon: <ReportProblemIcon />, permission: 'issues.read' },
-    { label: 'Reports', path: '/admin/reports', icon: <AssessmentIcon />, permission: 'reports.read' },
-    { label: 'Settings', path: '/admin/settings', icon: <SettingsIcon />, permission: 'admin' },
   ];
 
   const drawer = (
