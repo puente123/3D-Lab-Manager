@@ -100,3 +100,24 @@ export async function uploadLabThumbnail(file) {
 
   return uploadFile(file, 'lab-thumbnails', 'thumbnails');
 }
+
+/**
+ * Upload equipment thumbnail image
+ * @param {File} file - Image file to upload
+ * @returns {Promise<{success: boolean, url?: string, error?: string}>}
+ */
+export async function uploadEquipmentThumbnail(file) {
+  // Validate file type
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!validTypes.includes(file.type)) {
+    return { success: false, error: 'Only JPG, PNG, and WebP images are allowed' };
+  }
+
+  // Check file size (max 5MB)
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    return { success: false, error: 'Image size must be less than 5MB' };
+  }
+
+  return uploadFile(file, 'lab-thumbnails', 'items');
+}

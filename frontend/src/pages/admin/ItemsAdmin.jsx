@@ -39,6 +39,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   ViewInAr as ViewInArIcon,
+  CloudUpload as CloudUploadIcon,
 } from "@mui/icons-material";
 import {
   getEquipment,
@@ -47,6 +48,7 @@ import {
   deleteEquipment,
 } from "../../lib/supabaseItems";
 import { getLabs } from "../../lib/supabaseLabs";
+import { uploadEquipmentThumbnail } from "../../lib/supabaseStorage";
 import { ITEM_CATEGORIES, ITEM_STATUSES } from "../../shared/types";
 
 const ItemsAdmin = () => {
@@ -89,6 +91,9 @@ const ItemsAdmin = () => {
     message: "",
     severity: "success",
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -170,6 +175,8 @@ const ItemsAdmin = () => {
     });
     setFormErrors({});
     setCurrentItem(null);
+    setSelectedImageFile(null);
+    setImagePreview(null);
     setDialogOpen(true);
   };
 
@@ -193,6 +200,8 @@ const ItemsAdmin = () => {
       rotZ: currentItem.rotZ !== undefined ? currentItem.rotZ : "",
     });
     setFormErrors({});
+    setSelectedImageFile(null);
+    setImagePreview(currentItem.thumbnailUrl || null);
     handleMenuClose();
     setDialogOpen(true);
   };
@@ -207,6 +216,28 @@ const ItemsAdmin = () => {
     setDialogOpen(false);
     setCurrentItem(null);
     setFormErrors({});
+    setSelectedImageFile(null);
+    setImagePreview(null);
+  };
+
+  const handleImageSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedImageFile(file);
+
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImageFile(null);
+    setImagePreview(null);
+    setFormData({ ...formData, thumbnailUrl: "" });
   };
 
   const handleDeleteDialogClose = () => {
@@ -260,13 +291,30 @@ const ItemsAdmin = () => {
     }
 
     try {
+      let thumbnailUrl = formData.thumbnailUrl;
+
+      // Upload image if a new one was selected
+      if (selectedImageFile) {
+        setUploadingImage(true);
+        const uploadResult = await uploadEquipmentThumbnail(selectedImageFile);
+
+        if (!uploadResult.success) {
+          showSnackbar(uploadResult.error || "Failed to upload image", "error");
+          setUploadingImage(false);
+          return;
+        }
+
+        thumbnailUrl = uploadResult.url;
+        setUploadingImage(false);
+      }
+
       const itemData = {
         id: formData.id,
         name: formData.name,
         category: formData.category,
         status: formData.status,
         locationPath: formData.locationPath,
-        thumbnailUrl: formData.thumbnailUrl,
+        thumbnailUrl: thumbnailUrl,
         amazonLink: formData.amazonLink,
         modelPath: formData.modelPath || null,
         scale: formData.scale ? parseFloat(formData.scale) : null,
@@ -292,6 +340,7 @@ const ItemsAdmin = () => {
     } catch (error) {
       console.error("Failed to save item:", error);
       showSnackbar(error.message || "Failed to save item", "error");
+      setUploadingImage(false);
     }
   };
 
@@ -655,15 +704,66 @@ const ItemsAdmin = () => {
                     placeholder="e.g., Senior Lab › North Bench"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12}>
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                      Item Thumbnail
+                    </Typography>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Button
+                        variant="outlined"
+                        component="label"
+                        startIcon={<CloudUploadIcon />}
+                        disabled={uploadingImage}
+                      >
+                        Upload Image
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/jpeg,image/jpg,image/png,image/webp"
+                          onChange={handleImageSelect}
+                        />
+                      </Button>
+                      {imagePreview && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box
+                            component="img"
+                            src={imagePreview}
+                            alt="Thumbnail preview"
+                            sx={{
+                              width: 60,
+                              height: 60,
+                              objectFit: 'cover',
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                            }}
+                          />
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={handleRemoveImage}
+                          >
+                            Remove
+                          </Button>
+                        </Box>
+                      )}
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      JPG, PNG, or WebP (max 5MB)
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12}>
                   <TextField
-                    label="Thumbnail URL"
+                    label="Thumbnail URL (Optional)"
                     fullWidth
                     value={formData.thumbnailUrl}
                     onChange={(e) =>
                       setFormData({ ...formData, thumbnailUrl: e.target.value })
                     }
                     placeholder="/images/items/item.png"
+                    helperText="Or enter a URL directly if not uploading"
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -839,9 +939,9 @@ const ItemsAdmin = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDialogClose}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained">
-            {currentItem ? "Update" : "Create"}
+          <Button onClick={handleDialogClose} disabled={uploadingImage}>Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained" disabled={uploadingImage}>
+            {uploadingImage ? "Uploading..." : currentItem ? "Update" : "Create"}
           </Button>
         </DialogActions>
       </Dialog>

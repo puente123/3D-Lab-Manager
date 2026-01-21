@@ -19,6 +19,7 @@ import Footer from "./components/Footer.jsx";
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminProtectedRoute from './components/admin/AdminProtectedRoute';
+import { Navigate } from 'react-router-dom';
 
 // Pages
 import Home from "./pages/Home.jsx";
@@ -123,6 +124,7 @@ function App() {
               </AdminProtectedRoute>
             }
           >
+            <Route index element={<Navigate to="/admin/items" replace />} />
             <Route path="items" element={<ItemsAdmin />} />
             <Route path="users" element={<UsersAdmin />} />
             <Route path="labs" element={<LabsAdmin />} />

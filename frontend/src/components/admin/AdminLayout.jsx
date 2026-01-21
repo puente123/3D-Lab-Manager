@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Box,
+  Button,
   Drawer,
   IconButton,
   List,
@@ -29,6 +30,8 @@ import {
   ReportProblem as ReportProblemIcon,
   AccountCircle as AccountCircleIcon,
   Logout as LogoutIcon,
+  Home as HomeIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { can, getRoleDisplayName } from '../../lib/permissions';
@@ -60,6 +63,10 @@ const AdminLayout = () => {
     handleMenuClose();
     logout();
     navigate('/auth');
+  };
+
+  const handleBackToHome = () => {
+    navigate('/');
   };
 
   const navItems = [
@@ -160,6 +167,17 @@ const AdminLayout = () => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             3D Lab Manager
           </Typography>
+          <Button
+            color="inherit"
+            startIcon={<HomeIcon />}
+            onClick={handleBackToHome}
+            sx={{ mr: 1 }}
+            aria-label="Back to homepage"
+          >
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              Homepage
+            </Box>
+          </Button>
           <IconButton
             onClick={handleMenuOpen}
             aria-label="user menu"
