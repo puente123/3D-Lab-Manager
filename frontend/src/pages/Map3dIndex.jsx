@@ -1,11 +1,7 @@
 import { useState, useEffect } from "react";
 import LabCard from "../components/LabCard";
 import { getLabs } from "../lib/supabaseLabs";
-import {
-  Box,
-  Typography,
-  CircularProgress,
-} from "@mui/material";
+import { Box, Typography, CircularProgress } from "@mui/material";
 
 export default function Map3dIndex() {
   const [labs, setLabs] = useState([]);
@@ -19,8 +15,8 @@ export default function Map3dIndex() {
         const data = await getLabs();
         setLabs(data);
       } catch (err) {
-        console.error('Failed to load labs:', err);
-        setError('Failed to load labs. Please try again later.');
+        console.error("Failed to load labs:", err);
+        setError("Failed to load labs. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -66,14 +62,14 @@ export default function Map3dIndex() {
 
       {/* Loading State */}
       {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
         </Box>
       )}
 
       {/* Error State */}
       {error && !loading && (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
+        <Box sx={{ textAlign: "center", py: 8 }}>
           <Typography color="error">{error}</Typography>
         </Box>
       )}
@@ -94,7 +90,7 @@ export default function Map3dIndex() {
           }}
         >
           {labs.length === 0 ? (
-            <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 8 }}>
+            <Box sx={{ gridColumn: "1 / -1", textAlign: "center", py: 8 }}>
               <Typography color="text.secondary">
                 No labs available. Contact your administrator to add labs.
               </Typography>

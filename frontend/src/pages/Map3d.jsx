@@ -12,7 +12,8 @@ import {
 } from "@react-three/drei";
 
 import { getLabById } from "../lib/supabaseLabs";
-import { getEquipment } from "../lib/supabaseItems";
+import { getEquipmentByLabCode } from "../lib/supabaseItems";
+import SearchBar from "../components/SearchBar.jsx";
 import {
   Box,
   Button,
@@ -20,6 +21,8 @@ import {
   Typography,
   CircularProgress,
 } from "@mui/material";
+
+const PLACEHOLDER_MODEL = "/models/items/item_placeholder.glb";
 
 function Loader() {
   const { progress } = useProgress();
@@ -39,15 +42,15 @@ function LabModel({ path }) {
   const { gl, camera } = useThree();
   const group = useState(() => new THREE.Group())[0];
 
-  // enable local clipping
+  // Enable local clipping
   useEffect(() => {
     gl.localClippingEnabled = true;
   }, [gl]);
 
-  // clipping plane
+  // Clipping plane
   const ceilingPlane = useMemo(
     () => new THREE.Plane(new THREE.Vector3(0, -1, 0), -1e6),
-    []
+    [],
   );
 
   const bounds = useMemo(() => {
@@ -67,7 +70,7 @@ function LabModel({ path }) {
     }
   });
 
-  // apply backface culling + clipping to all meshes
+  // Apply backface culling and cliping planes
   useEffect(() => {
     group.add(scene);
     scene.traverse((child) => {
@@ -82,15 +85,15 @@ function LabModel({ path }) {
 
         const name = (child.name + " " + mat.name).toLowerCase();
 
-        // keep glass/windows double-sided
+        // Keep glass/windows double-sided
         if (name.includes("window") || name.includes("glass")) {
           mat.side = THREE.DoubleSide;
         } else {
-          // BACKFACE CULLING: only draw front faces
+          // Backface culling
           mat.side = THREE.FrontSide;
         }
 
-        // attach clipping plane
+        // Attach clipping plane
         mat.clippingPlanes = [ceilingPlane];
         mat.needsUpdate = true;
       });
@@ -101,20 +104,37 @@ function LabModel({ path }) {
 }
 
 // Component to render a single 3D item model
-function ItemModel({ item }) {
+function ItemModel({ item, isSelected, isHighlighted, onSelect }) {
   const { scene } = useGLTF(item.modelPath);
-  const scale = item.scale || 1.0;
-
-  // Clone the scene to avoid modifying the original
   const clonedScene = useMemo(() => scene.clone(), [scene]);
+  const scale = item.scale || 1;
 
   return (
-    <primitive
-      object={clonedScene}
-      position={[item.posX, item.posY, item.posZ]}
-      rotation={[item.rotX, item.rotX, item.rotX]}
-      scale={[scale, scale, scale]}
-    />
+    <group>
+      {/* Selection ring */}
+      {isSelected && (
+        <mesh
+          position={[item.x, item.y + 0.2, item.z]}
+          rotation={[-Math.PI / 2, 0, 0]} // Lay flat
+          raycast={() => null}
+        >
+          <ringGeometry args={[0.4, 0.45, 32]} />
+          <meshBasicMaterial color="blue" />
+        </mesh>
+      )}
+
+      {/* The model */}
+      <primitive
+        object={clonedScene}
+        position={[item.x, item.y, item.z]}
+        rotation={[item.rotX || 0, item.rotY || 0, item.rotZ || 0]}
+        scale={[scale, scale, scale]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(item.id);
+        }}
+      />
+    </group>
   );
 }
 
@@ -124,6 +144,29 @@ export default function Map3D() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedItemId, setSelectedItemId] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+
+    return items.filter((it) => {
+      const name = (it.name ?? "").toLowerCase();
+      const tags = (it.tags ?? "").toLowerCase(); // Optional
+      return name.includes(q) || tags.includes(q);
+    });
+  }, [items, search]);
+
+  const highlightedIds = useMemo(
+    () => new Set(filtered.map((i) => i.id)),
+    [filtered],
+  );
+
+  const selectedItem = useMemo(() => {
+    if (!selectedItemId) return null;
+    return items.find((it) => it.id === selectedItemId) ?? null;
+  }, [items, selectedItemId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -135,27 +178,21 @@ export default function Map3D() {
         const labData = await getLabById(labId);
         setLab(labData);
 
-        // Fetch items for this lab that have 3D models
-        const itemsData = await getEquipment({ labId });
-        // Filter items that have model paths and coordinates
-        const itemsWithModels = itemsData.filter(
-          (item) =>
-            item.modelPath &&
-            item.x !== null &&
-            item.x !== undefined &&
-            item.y !== null &&
-            item.y !== undefined &&
-            item.z !== null &&
-            item.z !== undefined
-        );
-        setItems(itemsWithModels);
+        const labCode = labData.lab_code;
+        const itemsData = await getEquipmentByLabCode(labCode);
 
+        // Normalize fields / set fallback model and  coordinates
+        const itemsReady = itemsData.map((item, idx) => ({
+          ...item,
+          modelPath: item.modelPath || PLACEHOLDER_MODEL,
+          x: item.x ?? idx * 1.0,
+          y: item.y ?? 0,
+          z: item.z ?? 0,
+        }));
+
+        setItems(itemsReady);
         // Preload all item models
-        itemsWithModels.forEach((item) => {
-          if (item.modelPath) {
-            useGLTF.preload(item.modelPath);
-          }
-        });
+        itemsReady.forEach((item) => useGLTF.preload(item.modelPath));
       } catch (err) {
         console.error("Failed to load lab or items:", err);
         setError(err.message || "Failed to load lab. Please try again.");
@@ -235,8 +272,101 @@ export default function Map3D() {
       </Stack>
 
       {/* Camera View */}
-      <div style={{ height: "80vh", width: "100%" }}>
-        <Canvas camera={{ position: [5, 5, 5], fov: 45 }}>
+      <div style={{ height: "80vh", width: "100%", position: "relative" }}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            width: { xs: "calc(100% - 32px)", sm: 360 },
+            zIndex: 10,
+            pointerEvents: "none",
+          }}
+        >
+          {/* Search island: clickable */}
+          <Box sx={{ pointerEvents: "auto" }}>
+            <Box
+              sx={{
+                mb: 2,
+                px: 1.5,
+                py: 1,
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="subtiltle2" sx={{ color: "text.secondary" }}>
+                Current selected item
+              </Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                {selectedItem
+                  ? selectedItem.name || `Item ${selectedItem.id}`
+                  : "None"}
+              </Typography>
+            </Box>
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              onClear={() => setSearch("")}
+              onSearch={() => {}}
+              placeholder="Search items in this lab..."
+            />
+            {search.trim() && (
+              <Box
+                sx={{
+                  mt: 1,
+                  maxHeight: 270,
+                  overflowY: "auto",
+                  bgcolor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 1,
+                  boxShadow: 3,
+                }}
+              >
+                {filtered.length === 0 ? (
+                  <Typography
+                    variant="body2"
+                    sx={{ p: 1.5, color: "text.secondary" }}
+                  >
+                    No matches
+                  </Typography>
+                ) : (
+                  filtered.slice(0, 12).map((item) => (
+                    <Box
+                      key={item.id}
+                      onClick={() => setSelectedItemId(item.id)}
+                      sx={{
+                        px: 1.5,
+                        py: 1,
+                        cursor: "pointer",
+                        "&:hover": { bgcolor: "action.hover" },
+                        borderBottom: "1px solid",
+                        borderColor: "divider",
+                        "&:last-child": { borderBottom: "none" },
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {item.name || `Item ${item.id}`}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "text.secondary" }}
+                      >
+                        {item.category || item.tag || ""}
+                      </Typography>
+                    </Box>
+                  ))
+                )}
+              </Box>
+            )}
+          </Box>
+        </Box>
+        <Canvas
+          camera={{ position: [5, 5, 5], fov: 45 }}
+          onPointerMissed={() => setSelectedItemId(null)}
+        >
           <ambientLight />
           <directionalLight position={[5, 5, 5]} intensity={0.9} />
           <Suspense fallback={<Loader />}>
@@ -246,7 +376,13 @@ export default function Map3D() {
 
               {/* Item Models */}
               {items.map((item) => (
-                <ItemModel key={item.id} item={item} />
+                <ItemModel
+                  key={item.id}
+                  item={item}
+                  isSelected={selectedItemId === item.id}
+                  isHighlighted={highlightedIds.has(item.id)}
+                  onSelect={setSelectedItemId}
+                />
               ))}
             </Bounds>
             <Environment preset="city" />

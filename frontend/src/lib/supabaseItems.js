@@ -19,7 +19,7 @@ export async function getEquipment({
 
   if (q) {
     query = query.or(
-      `qr_code.ilike.%${q}%,name.ilike.%${q}%,category.ilike.%${q}%,location_path.ilike.%${q}%`
+      `qr_code.ilike.%${q}%,name.ilike.%${q}%,category.ilike.%${q}%,location_path.ilike.%${q}%`,
     );
   }
 
@@ -89,6 +89,36 @@ export async function getEquipmentById(qrCode) {
   };
 }
 
+export async function getEquipmentByLabCode(labCode) {
+  const { data, error } = await supabase
+    .from("equipment")
+    .select("*")
+    .eq("lab_id", String(labCode));
+
+  if (error) throw error;
+
+  //Map to UI structure
+  return (data || []).map((row) => ({
+    id: row.id,
+    qrCode: row.qr_code,
+    name: row.name,
+    category: row.category,
+    status: row.status,
+    locationPath: row.location_path,
+    thumbnailUrl: row.thumbnail_url,
+    amazonLink: row.amazon_link,
+    modelPath: row.model_path,
+    scale: row.scale,
+    labId: row.lab_id,
+    x: row.x,
+    y: row.y,
+    z: row.z,
+    rotX: row.rot_x,
+    rotY: row.rot_y,
+    rotZ: row.rot_z,
+  }));
+}
+
 /**
  * Create new equipment item
  * @param {Object} itemData - Equipment data
@@ -149,9 +179,12 @@ export async function updateEquipment(qrCode, updates) {
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.category !== undefined) dbUpdates.category = updates.category;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
-  if (updates.locationPath !== undefined) dbUpdates.location_path = updates.locationPath;
-  if (updates.thumbnailUrl !== undefined) dbUpdates.thumbnail_url = updates.thumbnailUrl;
-  if (updates.amazonLink !== undefined) dbUpdates.amazon_link = updates.amazonLink;
+  if (updates.locationPath !== undefined)
+    dbUpdates.location_path = updates.locationPath;
+  if (updates.thumbnailUrl !== undefined)
+    dbUpdates.thumbnail_url = updates.thumbnailUrl;
+  if (updates.amazonLink !== undefined)
+    dbUpdates.amazon_link = updates.amazonLink;
   if (updates.modelPath !== undefined) dbUpdates.model_path = updates.modelPath;
   if (updates.scale !== undefined) dbUpdates.scale = updates.scale;
   if (updates.labId !== undefined) dbUpdates.lab_id = updates.labId;
