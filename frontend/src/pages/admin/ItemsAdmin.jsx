@@ -394,8 +394,10 @@ const ItemsAdmin = () => {
       <Box
         sx={{
           display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: { xs: "flex-start", sm: "center" },
+          gap: 2,
           mb: 3,
         }}
       >
@@ -419,7 +421,7 @@ const ItemsAdmin = () => {
 
       {/* Toolbar */}
       <Card sx={{ mb: 2 }}>
-        <Toolbar sx={{ gap: 2, flexWrap: "wrap", py: 2 }}>
+        <Toolbar sx={{ gap: 2, flexWrap: "wrap", py: 2, flexDirection: { xs: "column", sm: "row" }, alignItems: { xs: "stretch", sm: "center" } }}>
           <TextField
             placeholder="Search items..."
             size="small"
@@ -430,10 +432,10 @@ const ItemsAdmin = () => {
                 <SearchIcon sx={{ mr: 1, color: "text.secondary" }} />
               ),
             }}
-            sx={{ minWidth: 250 }}
+            sx={{ minWidth: { xs: "100%", sm: 250 } }}
             aria-label="Search items"
           />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 150 } }}>
             <InputLabel>Category</InputLabel>
             <Select
               value={filterCategory}
@@ -448,7 +450,7 @@ const ItemsAdmin = () => {
               ))}
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 150 } }}>
             <InputLabel>Status</InputLabel>
             <Select
               value={filterStatus}
@@ -463,7 +465,7 @@ const ItemsAdmin = () => {
               ))}
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 150 } }}>
             <InputLabel>Lab</InputLabel>
             <Select
               value={filterLab}
@@ -504,10 +506,10 @@ const ItemsAdmin = () => {
                   </TableCell>
                   <TableCell>QR Code</TableCell>
                   <TableCell>Name</TableCell>
-                  <TableCell>Category</TableCell>
-                  <TableCell>Lab</TableCell>
+                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Category</TableCell>
+                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Lab</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>3D Model</TableCell>
+                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>3D Model</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -540,8 +542,8 @@ const ItemsAdmin = () => {
                         <TableCell sx={{ fontWeight: 500 }}>
                           {item.name}
                         </TableCell>
-                        <TableCell>{item.category}</TableCell>
-                        <TableCell>
+                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>{item.category}</TableCell>
+                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
                           {item.labId
                             ? labs.find((l) => l.id === item.labId)?.name ||
                               item.labId
@@ -554,7 +556,7 @@ const ItemsAdmin = () => {
                             size="small"
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
                           {item.modelPath ? (
                             <Chip
                               icon={<ViewInArIcon />}

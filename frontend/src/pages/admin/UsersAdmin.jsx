@@ -156,9 +156,9 @@ const UsersAdmin = () => {
           <Table aria-label="Users table">
             <TableHead>
               <TableRow>
-                <TableCell>ID</TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>ID</TableCell>
                 <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Email</TableCell>
                 <TableCell>Role</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -168,11 +168,11 @@ const UsersAdmin = () => {
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((user) => (
                   <TableRow key={user.id} hover>
-                    <TableCell>{user.id}</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{user.id}</TableCell>
                     <TableCell sx={{ fontWeight: 500 }}>
                       {user.firstName} {user.lastName}
                     </TableCell>
-                    <TableCell>{user.email}</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{user.email}</TableCell>
                     <TableCell>
                       <Chip
                         icon={getRoleIcon(user.role)}

@@ -295,8 +295,10 @@ const LabsAdmin = () => {
         sx={{
           mb: 3,
           display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: { xs: "flex-start", sm: "center" },
+          gap: 2,
         }}
       >
         <Box>
@@ -476,7 +478,7 @@ const LabsAdmin = () => {
               <Paper
                 variant="outlined"
                 sx={{
-                  p: 3,
+                  p: { xs: 2, md: 3 },
                   textAlign: "center",
                   borderStyle: "dashed",
                   borderColor: formErrors.modelPath ? "error.main" : "divider",
@@ -496,7 +498,7 @@ const LabsAdmin = () => {
                   onChange={handleModelFileChange}
                 />
                 <ViewInArIcon
-                  sx={{ fontSize: 48, color: "text.secondary", mb: 1 }}
+                  sx={{ fontSize: { xs: 36, md: 48 }, color: "text.secondary", mb: 1 }}
                 />
                 <Typography variant="body2" color="text.secondary">
                   {modelFile ? (
@@ -539,7 +541,7 @@ const LabsAdmin = () => {
               <Paper
                 variant="outlined"
                 sx={{
-                  p: 3,
+                  p: { xs: 2, md: 3 },
                   textAlign: "center",
                   borderStyle: "dashed",
                   borderColor: formErrors.thumbnailUrl
@@ -561,7 +563,7 @@ const LabsAdmin = () => {
                   onChange={handleThumbnailFileChange}
                 />
                 <ImageIcon
-                  sx={{ fontSize: 48, color: "text.secondary", mb: 1 }}
+                  sx={{ fontSize: { xs: 36, md: 48 }, color: "text.secondary", mb: 1 }}
                 />
                 <Typography variant="body2" color="text.secondary">
                   {thumbnailFile ? (
