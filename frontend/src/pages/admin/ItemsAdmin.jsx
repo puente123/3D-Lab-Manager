@@ -128,6 +128,7 @@ const ItemsAdmin = () => {
 
   useEffect(() => {
     fetchItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, filterCategory, filterStatus, filterLab]);
 
   const handleSelectAll = (event) => {

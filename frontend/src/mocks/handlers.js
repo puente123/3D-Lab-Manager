@@ -67,7 +67,7 @@ export const handlers = [
         success: true,
         data: filteredItems
       });
-    } catch (error) {
+    } catch (_error) {
       return HttpResponse.json(
         {
           success: false,
@@ -100,7 +100,7 @@ export const handlers = [
         success: true,
         data: item
       });
-    } catch (error) {
+    } catch (_error) {
       return HttpResponse.json(
         {
           success: false,
@@ -156,7 +156,7 @@ export const handlers = [
           createdAt: new Date().toISOString()
         }
       });
-    } catch (error) {
+    } catch (_error) {
       return HttpResponse.json(
         {
           success: false,

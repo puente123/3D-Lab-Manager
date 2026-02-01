@@ -13,6 +13,9 @@ import {
   Alert,
   Snackbar,
   Skeleton,
+  Paper,
+  Divider,
+  Stack,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -21,13 +24,12 @@ import {
   LocationOn as LocationIcon,
   QrCode as QrCodeIcon,
   Category as CategoryIcon,
-  Info as InfoIcon,
   ShoppingCart as ShoppingCartIcon,
   History as HistoryIcon,
+  CheckCircle as CheckCircleIcon,
 } from "@mui/icons-material";
 
 // API and components
-//import { itemsApi } from "../lib/api";
 import { getEquipmentById } from "../lib/supabaseItems.js";
 import IssueModal from "../components/IssueModal";
 import EmptyState from "../components/EmptyState";
@@ -84,17 +86,14 @@ function ItemDetail() {
 
   // Navigation handlers
   const handleBack = () => {
-    // Preserve search state when going back to items
     const itemsPath = "/items";
     const query = searchParams.toString();
     navigate(query ? `${itemsPath}?${query}` : itemsPath);
   };
 
   const handleOpen3D = () => {
-    // Navigate to 3D map with item parameter
     navigate(`/map3d?item=${id}`);
 
-    // Attempt to call global 3D function if it exists
     if (window.flyToItem && typeof window.flyToItem === "function") {
       try {
         window.flyToItem(id);
@@ -134,64 +133,52 @@ function ItemDetail() {
   const getStatusConfig = (status) => {
     switch (status) {
       case "available":
-        return { color: "success", label: "AVAILABLE" };
+        return {
+          color: "success",
+          label: "Available",
+          icon: <CheckCircleIcon sx={{ fontSize: 18 }} />
+        };
       case "checked_out":
-        return { color: "warning", label: "CHECKED OUT" };
+        return {
+          color: "warning",
+          label: "Checked Out",
+          icon: null
+        };
       case "broken":
-        return { color: "error", label: "BROKEN" };
+        return {
+          color: "error",
+          label: "Broken",
+          icon: null
+        };
       default:
-        return { color: "default", label: status?.toUpperCase() || "UNKNOWN" };
+        return {
+          color: "default",
+          label: status || "Unknown",
+          icon: null
+        };
     }
   };
 
   // Loading state
   if (loading) {
     return (
-      <Box>
-        {/* Breadcrumb skeleton */}
-        <Box sx={{ mb: 3 }}>
-          <Skeleton variant="text" width={200} height={24} />
-        </Box>
-
-        {/* Header skeleton */}
-        <Box sx={{ mb: 4 }}>
-          <Skeleton variant="text" width={300} height={40} sx={{ mb: 1 }} />
-          <Skeleton
-            variant="rectangular"
-            width={100}
-            height={24}
-            sx={{ borderRadius: 10 }}
-          />
-        </Box>
-
-        {/* Content skeleton */}
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={6}>
-            <Skeleton
-              variant="rectangular"
-              width="100%"
-              height={300}
-              sx={{ borderRadius: 2 }}
-            />
+      <Box sx={{ maxWidth: 1400, mx: "auto" }}>
+        <Skeleton variant="text" width={200} height={32} sx={{ mb: 3 }} />
+        <Card sx={{ overflow: "hidden" }}>
+          <Grid container>
+            <Grid item xs={5}>
+              <Skeleton variant="rectangular" height={500} />
+            </Grid>
+            <Grid item xs={7}>
+              <Box sx={{ p: 4 }}>
+                <Skeleton variant="text" width="80%" height={48} sx={{ mb: 2 }} />
+                <Skeleton variant="rectangular" width={120} height={32} sx={{ mb: 4, borderRadius: 10 }} />
+                <Skeleton variant="rectangular" height={200} sx={{ mb: 3, borderRadius: 2 }} />
+                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+              </Box>
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={6}>
-            <Skeleton variant="text" width="100%" height={30} sx={{ mb: 2 }} />
-            <Skeleton variant="text" width="80%" height={24} sx={{ mb: 2 }} />
-            <Skeleton variant="text" width="60%" height={24} sx={{ mb: 3 }} />
-            <Skeleton
-              variant="rectangular"
-              width={150}
-              height={40}
-              sx={{ borderRadius: 1, mb: 2 }}
-            />
-            <Skeleton
-              variant="rectangular"
-              width={120}
-              height={36}
-              sx={{ borderRadius: 1 }}
-            />
-          </Grid>
-        </Grid>
+        </Card>
       </Box>
     );
   }
@@ -222,10 +209,10 @@ function ItemDetail() {
   const statusConfig = getStatusConfig(item.status);
 
   return (
-    <Box sx={{ maxWidth: "1400px", mx: "auto" }}>
+    <Box sx={{ maxWidth: 1400, mx: "auto", pb: 4 }}>
       {/* Breadcrumbs */}
       <Box sx={{ mb: 3 }}>
-        <Breadcrumbs aria-label="breadcrumb">
+        <Breadcrumbs aria-label="breadcrumb" separator="›">
           <Link
             component="button"
             variant="body2"
@@ -236,41 +223,62 @@ function ItemDetail() {
               gap: 0.5,
               textDecoration: "none",
               color: "primary.main",
-              "&:hover": { textDecoration: "underline" },
+              fontWeight: 500,
+              "&:hover": {
+                textDecoration: "underline",
+                color: "primary.dark"
+              },
             }}
           >
-            <ArrowBackIcon sx={{ fontSize: "1rem" }} />
+            <ArrowBackIcon sx={{ fontSize: 18 }} />
             Back to Items
           </Link>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" fontWeight={500}>
             {item.name}
           </Typography>
         </Breadcrumbs>
       </Box>
 
-      {/* Main Content Card */}
+      {/* Main Content */}
       <Card
+        elevation={0}
         sx={{
           border: "1px solid",
           borderColor: "divider",
+          borderRadius: 3,
           overflow: "hidden",
-          boxShadow: 3,
+          transition: "box-shadow 0.3s ease",
+          "&:hover": {
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)"
+          }
         }}
       >
-        <Grid container>
-          {/* Left Column - Image */}
-          <Grid item xs={12} lg={5}>
+        <Grid container sx={{ minHeight: 600 }}>
+          {/* Image Section */}
+          <Grid item xs={5} sx={{ height: 600, maxHeight: 600 }}>
             <Box
               sx={{
                 position: "relative",
-                height: { xs: "400px", lg: "100%" },
-                minHeight: { lg: "600px" },
-                backgroundColor: "grey.100",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                height: "100%",
+                width: "100%",
+                backgroundColor: "grey.50",
+                overflow: "hidden",
               }}
             >
+              {/* Gradient Overlay */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.03) 100%)",
+                  zIndex: 1,
+                  pointerEvents: "none"
+                }}
+              />
+
               <CardMedia
                 component="img"
                 image={item.thumbnailUrl}
@@ -279,347 +287,252 @@ function ItemDetail() {
                   width: "100%",
                   height: "100%",
                   objectFit: "cover",
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
+                  transition: "transform 0.3s ease",
+                  "&:hover": {
+                    transform: "scale(1.02)"
+                  }
                 }}
                 onError={(e) => {
                   e.target.style.display = "none";
                 }}
               />
-              {/* Fallback content */}
+
+              {/* Fallback */}
               <Box
                 sx={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
                   textAlign: "center",
-                  color: "text.secondary",
-                  p: 4,
-                  zIndex: 1,
+                  zIndex: 0,
                 }}
               >
-                <Box sx={{ fontSize: "4rem", mb: 2 }}>📦</Box>
-                <Typography variant="h6" color="text.secondary">
-                  {item.category}
-                </Typography>
+                <Box sx={{ fontSize: "5rem", mb: 2, opacity: 0.4 }}>📦</Box>
+                <Chip
+                  label={item.category}
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: "0.875rem"
+                  }}
+                />
+              </Box>
+
+              {/* Status Badge Overlay */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 20,
+                  right: 20,
+                  zIndex: 2,
+                }}
+              >
+                <Chip
+                  icon={statusConfig.icon}
+                  label={statusConfig.label}
+                  color={statusConfig.color}
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: "0.875rem",
+                    height: 36,
+                    px: 1,
+                    backdropFilter: "blur(10px)",
+                    backgroundColor: statusConfig.color === "success" ? "rgba(46, 125, 50, 0.95)" :
+                                     statusConfig.color === "warning" ? "rgba(237, 108, 2, 0.95)" :
+                                     statusConfig.color === "error" ? "rgba(211, 47, 47, 0.95)" :
+                                     "rgba(158, 158, 158, 0.95)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  }}
+                />
               </Box>
             </Box>
           </Grid>
 
-          {/* Right Column - Details and Actions */}
-          <Grid item xs={12} lg={7}>
-            <Box sx={{ p: { xs: 3, md: 4, lg: 5 } }}>
-              {/* Header Section */}
+          {/* Details Section */}
+          <Grid item xs={7}>
+            <Box sx={{ p: { xs: 3, sm: 4, md: 5 }, height: "100%" }}>
+              {/* Header */}
               <Box sx={{ mb: 4 }}>
-                <Box
+                <Typography
+                  variant="h1"
                   sx={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: 2,
+                    fontSize: { xs: "1.75rem", sm: "2rem", md: "2.5rem" },
+                    fontWeight: 700,
+                    color: "text.primary",
                     mb: 2,
+                    lineHeight: 1.2,
                   }}
                 >
-                  <Typography
-                    variant="h1"
-                    component="h1"
-                    sx={{
-                      fontSize: { xs: "1.75rem", md: "2.25rem" },
-                      fontWeight: 700,
-                      color: "text.primary",
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {item.name}
-                  </Typography>
+                  {item.name}
+                </Typography>
+
+                <Stack direction="row" spacing={1.5} alignItems="center">
                   <Chip
-                    label={statusConfig.label}
-                    color={statusConfig.color}
-                    variant="filled"
+                    icon={<QrCodeIcon sx={{ fontSize: 16 }} />}
+                    label={`ID: ${item.id}`}
                     size="medium"
                     sx={{
+                      fontFamily: "monospace",
                       fontWeight: 600,
                       fontSize: "0.875rem",
-                      height: 32,
-                      flexShrink: 0,
+                      backgroundColor: "primary.main",
+                      color: "white",
+                      "& .MuiChip-icon": {
+                        color: "white"
+                      }
                     }}
                   />
-                </Box>
-
-                <Typography
-                  variant="body1"
-                  sx={{
-                    color: "text.secondary",
-                    fontFamily: "monospace",
-                    fontSize: "0.9375rem",
-                    backgroundColor: "grey.50",
-                    display: "inline-block",
-                    px: 1.5,
-                    py: 0.5,
-                    borderRadius: 1,
-                  }}
-                >
-                  ID: {item.id}
-                </Typography>
+                  <Chip
+                    icon={<CategoryIcon sx={{ fontSize: 16 }} />}
+                    label={item.category}
+                    variant="outlined"
+                    sx={{
+                      fontWeight: 600,
+                      borderWidth: 2,
+                    }}
+                  />
+                </Stack>
               </Box>
 
-              {/* Information Grid */}
-              <Box sx={{ mb: 4 }}>
-                <Typography
-                  variant="h6"
+              <Divider sx={{ mb: 4 }} />
+
+              {/* Information Cards */}
+              <Stack spacing={3} sx={{ mb: 4 }}>
+                {/* Location Card */}
+                <Paper
+                  elevation={0}
                   sx={{
-                    mb: 3,
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
+                    p: 3,
+                    backgroundColor: "grey.50",
+                    border: "1px solid",
+                    borderColor: "grey.200",
+                    borderRadius: 2,
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      backgroundColor: "primary.50",
+                    }
                   }}
                 >
-                  <InfoIcon
-                    sx={{ fontSize: "1.25rem", color: "primary.main" }}
-                  />
-                  Item Information
-                </Typography>
-
-                <Grid container spacing={3}>
-                  {/* Category */}
-                  <Grid item xs={12} sm={6}>
+                  <Stack direction="row" spacing={2} alignItems="flex-start">
                     <Box
                       sx={{
-                        p: 2.5,
+                        p: 1.5,
                         borderRadius: 2,
-                        backgroundColor: "grey.50",
-                        border: "1px solid",
-                        borderColor: "grey.200",
-                        height: "100%",
+                        backgroundColor: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          mb: 1.5,
-                        }}
-                      >
-                        <CategoryIcon
-                          sx={{ fontSize: "1.125rem", color: "primary.main" }}
-                        />
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          fontWeight={500}
-                        >
-                          Category
-                        </Typography>
-                      </Box>
-                      <Chip
-                        label={item.category}
-                        variant="filled"
-                        size="medium"
-                        sx={{
-                          fontWeight: 500,
-                          backgroundColor: "primary.main",
-                          color: "white",
-                        }}
-                      />
+                      <LocationIcon sx={{ fontSize: 28, color: "primary.main" }} />
                     </Box>
-                  </Grid>
-
-                  {/* Status */}
-                  <Grid item xs={12} sm={6}>
-                    <Box
-                      sx={{
-                        p: 2.5,
-                        borderRadius: 2,
-                        backgroundColor: "grey.50",
-                        border: "1px solid",
-                        borderColor: "grey.200",
-                        height: "100%",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          mb: 1.5,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            width: 14,
-                            height: 14,
-                            borderRadius: "50%",
-                            backgroundColor:
-                              statusConfig.color === "success"
-                                ? "success.main"
-                                : statusConfig.color === "warning"
-                                ? "warning.main"
-                                : statusConfig.color === "error"
-                                ? "error.main"
-                                : "grey.400",
-                          }}
-                        />
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          fontWeight={500}
-                        >
-                          Status
-                        </Typography>
-                      </Box>
+                    <Box sx={{ flex: 1 }}>
                       <Typography
-                        variant="body1"
-                        sx={{ fontWeight: 600, fontSize: "1.125rem" }}
+                        variant="caption"
+                        color="text.secondary"
+                        fontWeight={600}
+                        textTransform="uppercase"
+                        letterSpacing={0.5}
+                        sx={{ mb: 0.5, display: "block" }}
                       >
-                        {statusConfig.label}
+                        Location
                       </Typography>
-                    </Box>
-                  </Grid>
-
-                  {/* Location */}
-                  <Grid item xs={12}>
-                    <Box
-                      sx={{
-                        p: 2.5,
-                        borderRadius: 2,
-                        backgroundColor: "grey.50",
-                        border: "1px solid",
-                        borderColor: "grey.200",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          mb: 1.5,
-                        }}
-                      >
-                        <LocationIcon
-                          sx={{ fontSize: "1.125rem", color: "primary.main" }}
-                        />
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          fontWeight={500}
-                        >
-                          Location
-                        </Typography>
-                      </Box>
                       <Typography
-                        variant="body1"
-                        sx={{ fontWeight: 600, fontSize: "1.125rem" }}
+                        variant="h6"
+                        sx={{
+                          fontWeight: 600,
+                          color: "text.primary",
+                          fontSize: "1.125rem"
+                        }}
                       >
                         {item.locationPath}
                       </Typography>
                     </Box>
-                  </Grid>
-                </Grid>
-              </Box>
+                  </Stack>
+                </Paper>
 
-              {/* QR Code Section */}
-              <Box sx={{ mb: 4 }}>
-                <Typography
-                  variant="h6"
+                {/* QR Code Card */}
+                <Paper
+                  elevation={0}
                   sx={{
-                    mb: 2,
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                  }}
-                >
-                  <QrCodeIcon
-                    sx={{ fontSize: "1.25rem", color: "primary.main" }}
-                  />
-                  QR Code
-                </Typography>
-
-                <Box
-                  sx={{
-                    backgroundColor: "grey.50",
+                    p: 3,
                     border: "2px dashed",
                     borderColor: "primary.main",
                     borderRadius: 2,
-                    p: 3,
+                    backgroundColor: "primary.50",
                     textAlign: "center",
                   }}
                 >
+                  <QrCodeIcon sx={{ fontSize: 48, color: "primary.main", mb: 1.5 }} />
                   <Typography
                     variant="h4"
                     sx={{
                       fontWeight: 700,
                       fontFamily: "monospace",
-                      color: "primary.main",
+                      color: "primary.dark",
                       mb: 0.5,
+                      letterSpacing: 1,
                     }}
                   >
                     {item.id}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" fontWeight={500}>
                     Scan this item's QR code label
                   </Typography>
-                </Box>
-              </Box>
+                </Paper>
 
-              {/* Checkout Log Section */}
-              <Box sx={{ mb: 4 }}>
-                <Typography
-                  variant="h6"
+                {/* Checkout History Card */}
+                <Paper
+                  elevation={0}
                   sx={{
-                    mb: 2,
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                  }}
-                >
-                  <HistoryIcon
-                    sx={{ fontSize: "1.25rem", color: "primary.main" }}
-                  />
-                  Checkout History
-                </Typography>
-
-                <Box
-                  sx={{
+                    p: 3,
                     backgroundColor: "grey.50",
                     border: "1px solid",
                     borderColor: "grey.200",
                     borderRadius: 2,
-                    p: 3,
                   }}
                 >
+                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+                    <HistoryIcon sx={{ fontSize: 24, color: "primary.main" }} />
+                    <Typography variant="h6" fontWeight={600}>
+                      Checkout History
+                    </Typography>
+                  </Stack>
+
                   {item.status === "checked_out" ? (
-                    <Box>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 1.5 }}
-                      >
-                        <strong>Current Status:</strong> Checked Out
+                    <Box
+                      sx={{
+                        p: 2,
+                        backgroundColor: "warning.50",
+                        borderRadius: 1.5,
+                        border: "1px solid",
+                        borderColor: "warning.200",
+                      }}
+                    >
+                      <Typography variant="body2" color="warning.dark" fontWeight={600} sx={{ mb: 0.5 }}>
+                        Currently Checked Out
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        This item is currently checked out. Checkout history details will be available when the checkout system is fully implemented.
+                        Checkout history details will be available when the checkout system is fully implemented.
                       </Typography>
                     </Box>
                   ) : (
                     <Box sx={{ textAlign: "center", py: 2 }}>
-                      <HistoryIcon
-                        sx={{ fontSize: "2.5rem", color: "text.disabled", mb: 1 }}
-                      />
+                      <HistoryIcon sx={{ fontSize: 40, color: "text.disabled", mb: 1, opacity: 0.5 }} />
                       <Typography variant="body2" color="text.secondary">
                         {item.status === "available"
-                          ? "This item is currently available. No active checkouts."
-                          : "Checkout history will be displayed here when available."}
+                          ? "No active checkouts"
+                          : "No checkout history available"}
                       </Typography>
                     </Box>
                   )}
-                </Box>
-              </Box>
+                </Paper>
+              </Stack>
 
-              {/* Amazon Link (if available) */}
-              {item.amazonLink && (
-                <Box sx={{ mb: 3 }}>
+              {/* Action Buttons */}
+              <Stack spacing={2}>
+                {item.amazonLink && (
                   <Button
                     component="a"
                     href={item.amazonLink}
@@ -634,66 +547,72 @@ function ItemDetail() {
                       fontWeight: 600,
                       fontSize: "1rem",
                       backgroundColor: "#FF9900",
-                      color: "white",
-                      boxShadow: 2,
+                      color: "#000",
+                      boxShadow: "0 2px 8px rgba(255, 153, 0, 0.3)",
+                      textTransform: "none",
                       "&:hover": {
                         backgroundColor: "#EC7211",
-                        boxShadow: 4,
+                        boxShadow: "0 4px 16px rgba(255, 153, 0, 0.4)",
+                        transform: "translateY(-1px)",
                       },
+                      transition: "all 0.2s ease",
                     }}
                   >
                     View on Amazon
                   </Button>
-                </Box>
-              )}
+                )}
 
-              {/* Action Buttons */}
-              <Box
-                sx={{
-                  display: "flex",
-                  gap: 2,
-                  flexDirection: { xs: "column", sm: "row" },
-                }}
-              >
-                <Button
-                  variant="contained"
-                  size="large"
-                  startIcon={<OpenInNewIcon />}
-                  onClick={handleOpen3D}
-                  fullWidth
-                  sx={{
-                    py: 1.75,
-                    fontWeight: 600,
-                    fontSize: "1rem",
-                    boxShadow: 2,
-                    "&:hover": {
-                      boxShadow: 4,
-                    },
-                  }}
-                >
-                  Open in 3D Map
-                </Button>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      startIcon={<OpenInNewIcon />}
+                      onClick={handleOpen3D}
+                      fullWidth
+                      sx={{
+                        py: 1.75,
+                        fontWeight: 600,
+                        fontSize: "1rem",
+                        textTransform: "none",
+                        boxShadow: "0 2px 8px rgba(30, 58, 138, 0.2)",
+                        "&:hover": {
+                          boxShadow: "0 4px 16px rgba(30, 58, 138, 0.3)",
+                          transform: "translateY(-1px)",
+                        },
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      Open in 3D
+                    </Button>
+                  </Grid>
 
-                <Button
-                  variant="outlined"
-                  size="large"
-                  startIcon={<ReportProblemIcon />}
-                  onClick={handleOpenIssueModal}
-                  color="warning"
-                  fullWidth
-                  sx={{
-                    py: 1.75,
-                    fontWeight: 600,
-                    fontSize: "1rem",
-                    borderWidth: 2,
-                    "&:hover": {
-                      borderWidth: 2,
-                    },
-                  }}
-                >
-                  Report Issue
-                </Button>
-              </Box>
+                  <Grid item xs={12} sm={6}>
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      startIcon={<ReportProblemIcon />}
+                      onClick={handleOpenIssueModal}
+                      color="warning"
+                      fullWidth
+                      sx={{
+                        py: 1.75,
+                        fontWeight: 600,
+                        fontSize: "1rem",
+                        textTransform: "none",
+                        borderWidth: 2,
+                        "&:hover": {
+                          borderWidth: 2,
+                          transform: "translateY(-1px)",
+                        },
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      Report Issue
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Stack>
             </Box>
           </Grid>
         </Grid>
@@ -719,6 +638,7 @@ function ItemDetail() {
           onClose={handleCloseToast}
           severity={toast.severity}
           variant="filled"
+          elevation={6}
           sx={{ width: "100%" }}
         >
           {toast.message}

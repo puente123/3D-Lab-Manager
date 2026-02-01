@@ -82,6 +82,7 @@ const LabsAdmin = () => {
 
   useEffect(() => {
     fetchLabs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAddClick = () => {

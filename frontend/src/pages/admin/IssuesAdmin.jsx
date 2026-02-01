@@ -77,6 +77,7 @@ const IssuesAdmin = () => {
 
   useEffect(() => {
     fetchIssues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleStatusChange = (issue) => {

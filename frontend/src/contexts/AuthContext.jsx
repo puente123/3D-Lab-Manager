@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 const AuthContext = createContext(null);
@@ -8,58 +9,60 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const fetchPromiseRef = useRef(null);
+  const isInitializedRef = useRef(false);
 
   // Helper function to fetch user profile with role
   const fetchUserProfile = useCallback(async (authUser) => {
     if (!authUser) {
-      console.log("fetchUserProfile: no authUser provided");
       return null;
     }
 
-    console.log("fetchUserProfile: fetching profile for user", authUser.id);
+    // If a fetch is already in progress for the same user, return that promise
+    if (fetchPromiseRef.current) {
+      return fetchPromiseRef.current;
+    }
 
-    try {
-      // Add timeout to prevent infinite hanging
-      const timeoutPromise = new Promise((resolve) => {
-        setTimeout(() => {
-          console.warn("Profile fetch timed out after 8 seconds, using default role");
-          resolve({ data: null, error: { message: "Timeout" } });
-        }, 8000);
-      });
+    // Create new fetch promise
+    const fetchPromise = (async () => {
+      try {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("role, full_name")
+          .eq("id", authUser.id)
+          .single();
 
-      const queryPromise = supabase
-        .from("profiles")
-        .select("role, full_name")
-        .eq("id", authUser.id)
-        .single();
+        if (error) {
+          console.error("Error fetching user profile:", error);
+          // Return user with default role if query fails
+          return {
+            ...authUser,
+            role: "student",
+            full_name: authUser.email?.split("@")[0] || null,
+          };
+        }
 
-      const { data: profile, error } = await Promise.race([queryPromise, timeoutPromise]);
-
-      if (error) {
-        console.error("Error fetching user profile:", error);
-        // Return user without profile data if query fails
+        return {
+          ...authUser,
+          role: profile?.role || "student",
+          full_name: profile?.full_name,
+        };
+      } catch (err) {
+        console.error("Unexpected error fetching profile:", err);
         return {
           ...authUser,
           role: "student",
-          full_name: null,
+          full_name: authUser.email?.split("@")[0] || null,
         };
+      } finally {
+        // Clear the promise cache after completion
+        fetchPromiseRef.current = null;
       }
+    })();
 
-      console.log("fetchUserProfile: profile fetched successfully", profile);
-
-      return {
-        ...authUser,
-        role: profile?.role || "student",
-        full_name: profile?.full_name,
-      };
-    } catch (err) {
-      console.error("Unexpected error fetching profile:", err);
-      return {
-        ...authUser,
-        role: "student",
-        full_name: null,
-      };
-    }
+    // Store promise so concurrent calls can reuse it
+    fetchPromiseRef.current = fetchPromise;
+    return fetchPromise;
   }, []);
 
   // Restore session on refresh
@@ -72,7 +75,9 @@ export const AuthProvider = ({ children }) => {
 
         if (session?.user) {
           const userWithProfile = await fetchUserProfile(session.user);
-          setUser(userWithProfile);
+          if (userWithProfile) {
+            setUser(userWithProfile);
+          }
         } else {
           setUser(null);
         }
@@ -81,6 +86,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
       } finally {
         setLoading(false);
+        isInitializedRef.current = true;
       }
     };
 
@@ -89,12 +95,20 @@ export const AuthProvider = ({ children }) => {
     // Listen for login/logout
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.email);
+        // Skip INITIAL_SESSION to prevent duplicate fetch on mount
+        if (event === "INITIAL_SESSION" && !isInitializedRef.current) {
+          return;
+        }
 
-        if (session?.user) {
-          const userWithProfile = await fetchUserProfile(session.user);
-          setUser(userWithProfile);
-        } else {
+        // Only fetch profile for relevant events
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+          if (session?.user) {
+            const userWithProfile = await fetchUserProfile(session.user);
+            if (userWithProfile) {
+              setUser(userWithProfile);
+            }
+          }
+        } else if (event === "SIGNED_OUT") {
           setUser(null);
         }
       }

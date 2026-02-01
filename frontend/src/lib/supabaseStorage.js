@@ -11,7 +11,7 @@ export async function uploadFile(file, bucket, folder = '') {
   try {
     // Generate unique filename to avoid conflicts
     const timestamp = Date.now();
-    const fileExt = file.name.split('.').pop();
+    const _fileExt = file.name.split('.').pop(); // Reserved for future use
     const fileName = `${timestamp}_${file.name}`;
     const filePath = folder ? `${folder}/${fileName}` : fileName;
 

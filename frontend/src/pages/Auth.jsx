@@ -28,7 +28,7 @@ function Auth() {
   const { login, signup, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showConfirmPassword, _setShowConfirmPassword] = useState(false); // TODO: Add toggle button
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);

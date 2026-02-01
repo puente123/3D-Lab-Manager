@@ -232,3 +232,82 @@ export async function deleteEquipment(qrCode) {
 
   if (error) throw error;
 }
+
+/**
+ * Check out an equipment item to a user
+ * @param {string} qrCode - QR code of the equipment
+ * @param {string} userId - User ID checking out the item
+ * @returns {Promise<{success: boolean, item: Object}>}
+ */
+export async function checkoutItem(qrCode, userId) {
+  // Step 1: Get the equipment item by qr_code to retrieve its UUID
+  const { data: equipment, error: fetchError } = await supabase
+    .from("equipment")
+    .select("*")
+    .eq("qr_code", qrCode)
+    .single();
+
+  if (fetchError) {
+    throw new Error(`Failed to fetch equipment: ${fetchError.message}`);
+  }
+
+  if (!equipment) {
+    throw new Error("Equipment not found");
+  }
+
+  // Step 2: Check if the item is available
+  if (equipment.status !== "available") {
+    throw new Error(`Item is ${equipment.status} and cannot be checked out`);
+  }
+
+  // Step 3: Update equipment status to 'checked_out'
+  const { error: updateError } = await supabase
+    .from("equipment")
+    .update({ status: "checked_out" })
+    .eq("qr_code", qrCode);
+
+  if (updateError) {
+    throw new Error(`Failed to update equipment status: ${updateError.message}`);
+  }
+
+  // Step 4: Insert checkout record into checkout_log
+  const { error: logError } = await supabase
+    .from("checkout_log")
+    .insert([
+      {
+        equipment_id: equipment.id,
+        user_id: userId,
+        checkout_date: new Date().toISOString(),
+      },
+    ]);
+
+  if (logError) {
+    // Rollback the status update if logging fails
+    await supabase
+      .from("equipment")
+      .update({ status: "available" })
+      .eq("qr_code", qrCode);
+
+    throw new Error(`Failed to log checkout: ${logError.message}`);
+  }
+
+  // Step 5: Return success with item data
+  return {
+    success: true,
+    item: {
+      id: equipment.qr_code,
+      name: equipment.name,
+      category: equipment.category,
+      status: "checked_out",
+      locationPath: equipment.location_path,
+      thumbnailUrl: equipment.thumbnail_url,
+      amazonLink: equipment.amazon_link,
+      modelPath: equipment.model_path,
+      scale: equipment.scale,
+      labId: equipment.lab_id,
+      x: equipment.x,
+      y: equipment.y,
+      z: equipment.z,
+    },
+  };
+}

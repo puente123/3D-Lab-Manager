@@ -104,7 +104,7 @@ function LabModel({ path }) {
 }
 
 // Component to render a single 3D item model
-function ItemModel({ item, isSelected, isHighlighted, onSelect }) {
+function ItemModel({ item, isSelected, isHighlighted: _isHighlighted, onSelect }) {
   const { scene } = useGLTF(item.modelPath);
   const clonedScene = useMemo(() => scene.clone(), [scene]);
   const scale = item.scale || 1;

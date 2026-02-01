@@ -52,4 +52,4 @@ export const getRoleDisplayName = (role) => {
  * Get all available roles
  * @returns {Role[]}
  */
-export const getAllRoles = () => ['admin', 'labManager', 'staff', 'viewer'];
+export const getAllRoles = () => ['admin', 'ta', 'student'];

@@ -122,7 +122,6 @@ function TopNav() {
       });
 
       menuItems.push(<Divider key="divider" />);
-    } else {
     }
 
     return (
