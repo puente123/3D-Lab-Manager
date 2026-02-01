@@ -198,7 +198,7 @@ const IssuesAdmin = () => {
       {/* Kanban Board */}
       <Grid container spacing={2}>
         {STATUSES.map((status) => (
-          <Grid item xs={12} md={4} key={status}>
+          <Grid item xs={12} sm={6} lg={4} key={status}>
             <Card sx={{ bgcolor: 'background.default', height: '100%' }}>
               <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -211,7 +211,7 @@ const IssuesAdmin = () => {
                 </Typography>
               </Box>
               <Divider />
-              <Box sx={{ p: 2, maxHeight: '70vh', overflow: 'auto' }}>
+              <Box sx={{ p: 2, maxHeight: { xs: '50vh', md: '70vh' }, overflow: 'auto' }}>
                 <Stack spacing={2}>
                   {groupedIssues[status].map((issue) => (
                     <Card key={issue.id} variant="outlined" sx={{ '&:hover': { boxShadow: 2 } }}>
