@@ -89,35 +89,6 @@ export async function getEquipmentById(qrCode) {
   };
 }
 
-export async function getEquipmentByLabId(labId) {
-  const { data, error } = await supabase
-    .from("equipment")
-    .select("*")
-    .eq("lab_id", String(labId));
-
-  if (error) throw error;
-
-  return (data || []).map((row) => ({
-    id: row.id,
-    qrCode: row.qr_code,
-    name: row.name,
-    category: row.category,
-    status: row.status,
-    locationPath: row.location_path,
-    thumbnailUrl: row.thumbnail_url,
-    amazonLink: row.amazon_link,
-    modelPath: row.model_path,
-    scale: row.scale,
-    labId: row.lab_id,
-    x: row.x,
-    y: row.y,
-    z: row.z,
-    rotX: row.rot_x,
-    rotY: row.rot_y,
-    rotZ: row.rot_z,
-  }));
-}
-
 export async function getEquipmentByLabCode(labCode) {
   const { data, error } = await supabase
     .from("equipment")
@@ -246,18 +217,6 @@ export async function updateEquipment(qrCode, updates) {
     y: data.y,
     z: data.z,
   };
-}
-
-export async function updateEquipmentPosition(equipmentId, { x, y, z }) {
-  const { data, error } = await supabase
-    .from("equipment")
-    .update({ x, y, z })
-    .eq("id", equipmentId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
 }
 
 /**

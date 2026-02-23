@@ -1,6 +1,6 @@
 import { Suspense, useMemo, useEffect, useState } from "react";
 import * as THREE from "three";
-import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { Link as RouterLink, useParams } from "react-router-dom";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -10,22 +10,17 @@ import {
   useProgress,
   Environment,
 } from "@react-three/drei";
+
+import { getLabById } from "../lib/supabaseLabs";
+import { getEquipmentByLabCode } from "../lib/supabaseItems";
+import SearchBar from "../components/SearchBar.jsx";
 import {
   Box,
   Button,
   Stack,
   Typography,
   CircularProgress,
-  TextField,
 } from "@mui/material";
-import { getLabById } from "../lib/supabaseLabs";
-import {
-  getEquipmentByLabId,
-  updateEquipmentPosition,
-} from "../lib/supabaseItems";
-import SearchBar from "../components/SearchBar.jsx";
-import { can } from "../lib/permissions";
-import { useAuth } from "../contexts/AuthContext";
 
 const PLACEHOLDER_MODEL = "/models/items/item_placeholder.glb";
 
@@ -75,7 +70,7 @@ function LabModel({ path }) {
     }
   });
 
-  // Apply backface culling
+  // Apply backface culling and cliping planes
   useEffect(() => {
     group.add(scene);
     scene.traverse((child) => {
@@ -115,47 +110,42 @@ function ItemModel({ item, isSelected, isHighlighted: _isHighlighted, onSelect }
   const scale = item.scale || 1;
 
   return (
-    <group
-      position={[item.x, item.y, item.z]}
-      rotation={[item.rotX || 0, item.rotY || 0, item.rotZ || 0]}
-      scale={[scale, scale, scale]}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(item.qrCode || item.qr_code || item.id);
-      }}
-    >
+    <group>
       {/* Selection ring */}
       {isSelected && (
         <mesh
-          position={[0, 0.35, 0]}
-          rotation={[-Math.PI / 2, 0, 0]}
+          position={[item.x, item.y + 0.2, item.z]}
+          rotation={[-Math.PI / 2, 0, 0]} // Lay flat
           raycast={() => null}
         >
-          <ringGeometry args={[0.7, 0.75, 32]} />
+          <ringGeometry args={[0.4, 0.45, 32]} />
           <meshBasicMaterial color="blue" />
         </mesh>
       )}
 
       {/* The model */}
-      <primitive object={clonedScene} />
+      <primitive
+        object={clonedScene}
+        position={[item.x, item.y, item.z]}
+        rotation={[item.rotX || 0, item.rotY || 0, item.rotZ || 0]}
+        scale={[scale, scale, scale]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(item.id);
+        }}
+      />
     </group>
   );
 }
 
 export default function Map3D() {
   const { labId } = useParams();
-  const navigate = useNavigate();
   const [lab, setLab] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [search, setSearch] = useState("");
-  const { role } = useAuth();
-  const canMoveItems = can(role, "items.write");
-  const [step, setStep] = useState(0.1);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -175,45 +165,8 @@ export default function Map3D() {
 
   const selectedItem = useMemo(() => {
     if (!selectedItemId) return null;
-    return (
-      items.find(
-        (it) => (it.qrCode || it.qr_code || it.id) === selectedItemId,
-      ) ?? null
-    );
+    return items.find((it) => it.id === selectedItemId) ?? null;
   }, [items, selectedItemId]);
-
-  const nudge = (axis, dir) => {
-    if (!selectedItemId) return;
-
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === selectedItemId
-          ? { ...it, [axis]: (Number(it[axis]) || 0) + dir * step }
-          : it,
-      ),
-    );
-
-    setDirty(true);
-  };
-
-  const resetSelectedToDb = () => {
-    setDirty(false);
-  };
-
-  const saveSelectedPosition = async () => {
-    const it = items.find((x) => x.id === selectedItemId);
-    if (!it) return;
-
-    try {
-      setSaving(true);
-      await updateEquipmentPosition(it.id, { x: it.x, y: it.y, z: it.z });
-      setDirty(false);
-    } catch (e) {
-      console.error("Failed to save position:", e);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -225,7 +178,8 @@ export default function Map3D() {
         const labData = await getLabById(labId);
         setLab(labData);
 
-        const itemsData = await getEquipmentByLabId(labData.id);
+        const labCode = labData.lab_code;
+        const itemsData = await getEquipmentByLabCode(labCode);
 
         // Normalize fields / set fallback model and  coordinates
         const itemsReady = itemsData.map((item, idx) => ({
@@ -329,7 +283,7 @@ export default function Map3D() {
             pointerEvents: "none",
           }}
         >
-          {/* Search: clickable */}
+          {/* Search island: clickable */}
           <Box sx={{ pointerEvents: "auto" }}>
             <Box
               sx={{
@@ -350,137 +304,6 @@ export default function Map3D() {
                   ? selectedItem.name || `Item ${selectedItem.id}`
                   : "None"}
               </Typography>
-
-              <Button
-                variant="contained"
-                size="small"
-                sx={{ mt: 1 }}
-                disabled={!selectedItem}
-                onClick={() => {
-                  const qr =
-                    selectedItem?.qrCode ||
-                    selectedItem?.qr_code ||
-                    selectedItem?.id; // fallback if id == qr
-                  navigate(`/item/${qr}`, { state: { fromLabId: labId } });
-                }}
-              >
-                View Item Details
-              </Button>
-            </Box>
-            <Box
-              sx={{
-                mb: 2,
-                px: 1.5,
-                py: 1,
-                bgcolor: "background.paper",
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: 1,
-              }}
-            >
-              <Stack spacing={1}>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    Position controls
-                  </Typography>
-
-                  <TextField
-                    label="Step"
-                    size="small"
-                    value={step}
-                    onChange={(e) => setStep(Number(e.target.value) || 0)}
-                    sx={{ width: 110 }}
-                    inputProps={{ inputMode: "decimal" }}
-                  />
-                </Stack>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("x", -1)}
-                  >
-                    X-
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("x", 1)}
-                  >
-                    X+
-                  </Button>
-                </Stack>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("y", -1)}
-                  >
-                    Y-
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("y", 1)}
-                  >
-                    Y+
-                  </Button>
-                </Stack>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("z", -1)}
-                  >
-                    Z-
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("z", 1)}
-                  >
-                    Z+
-                  </Button>
-                </Stack>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    disabled={!selectedItemId || saving || !dirty}
-                    onClick={saveSelectedPosition}
-                  >
-                    {saving ? "Saving..." : dirty ? "Save" : "Saved"}
-                  </Button>
-                  <Button
-                    variant="text"
-                    fullWidth
-                    disabled={!selectedItemId || !dirty}
-                    onClick={resetSelectedToDb}
-                  >
-                    Reset
-                  </Button>
-                </Stack>
-
-                {selectedItem && (
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "text.secondary" }}
-                  >
-                    x={Number(selectedItem.x).toFixed(3)} y=
-                    {Number(selectedItem.y).toFixed(3)} z=
-                    {Number(selectedItem.z).toFixed(3)}
-                  </Typography>
-                )}
-              </Stack>
             </Box>
             <SearchBar
               value={search}
@@ -556,9 +379,7 @@ export default function Map3D() {
                 <ItemModel
                   key={item.id}
                   item={item}
-                  isSelected={
-                    selectedItemId === (item.qrCode || item.qr_code || item.id)
-                  }
+                  isSelected={selectedItemId === item.id}
                   isHighlighted={highlightedIds.has(item.id)}
                   onSelect={setSelectedItemId}
                 />
