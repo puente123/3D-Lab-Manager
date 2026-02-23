@@ -10,18 +10,28 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const fetchPromiseRef = useRef(null);
-  const isInitializedRef = useRef(false);
+  const currentUserIdRef = useRef(null);
 
   // Helper function to fetch user profile with role
   const fetchUserProfile = useCallback(async (authUser) => {
     if (!authUser) {
+      fetchPromiseRef.current = null;
+      currentUserIdRef.current = null;
       return null;
     }
 
-    // If a fetch is already in progress for the same user, return that promise
-    if (fetchPromiseRef.current) {
+    // If a fetch is already in progress for the SAME user, return that promise
+    if (fetchPromiseRef.current && currentUserIdRef.current === authUser.id) {
       return fetchPromiseRef.current;
     }
+
+    // Clear any stale promise for a different user
+    if (currentUserIdRef.current !== authUser.id) {
+      fetchPromiseRef.current = null;
+    }
+
+    // Store current user ID
+    currentUserIdRef.current = authUser.id;
 
     // Create new fetch promise
     const fetchPromise = (async () => {
@@ -57,6 +67,7 @@ export const AuthProvider = ({ children }) => {
       } finally {
         // Clear the promise cache after completion
         fetchPromiseRef.current = null;
+        currentUserIdRef.current = null;
       }
     })();
 
@@ -67,54 +78,83 @@ export const AuthProvider = ({ children }) => {
 
   // Restore session on refresh
   useEffect(() => {
+    let mounted = true;
+
     const init = async () => {
       try {
         const {
           data: { session },
+          error: sessionError,
         } = await supabase.auth.getSession();
+
+        // If session retrieval failed or returned an error, clear storage
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          await supabase.auth.signOut();
+          if (mounted) {
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
 
         if (session?.user) {
           const userWithProfile = await fetchUserProfile(session.user);
-          if (userWithProfile) {
-            setUser(userWithProfile);
+          if (mounted) {
+            // Always set user state, even if fetchUserProfile returns null
+            setUser(userWithProfile || null);
           }
         } else {
-          setUser(null);
+          if (mounted) {
+            setUser(null);
+          }
         }
       } catch (err) {
         console.error("Error initializing auth:", err);
-        setUser(null);
+        // Clear potentially corrupted session on error
+        await supabase.auth.signOut();
+        if (mounted) {
+          setUser(null);
+        }
       } finally {
-        setLoading(false);
-        isInitializedRef.current = true;
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     init();
 
-    // Listen for login/logout
+    // Listen for login/logout - set up AFTER init starts
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        // Skip INITIAL_SESSION to prevent duplicate fetch on mount
-        if (event === "INITIAL_SESSION" && !isInitializedRef.current) {
+        // Skip INITIAL_SESSION event entirely - init() handles initial load
+        if (event === "INITIAL_SESSION") {
           return;
         }
+
+        if (!mounted) return;
 
         // Only fetch profile for relevant events
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
           if (session?.user) {
             const userWithProfile = await fetchUserProfile(session.user);
-            if (userWithProfile) {
-              setUser(userWithProfile);
+            if (mounted) {
+              setUser(userWithProfile || null);
             }
           }
         } else if (event === "SIGNED_OUT") {
-          setUser(null);
+          if (mounted) {
+            setUser(null);
+          }
         }
       }
     );
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, [fetchUserProfile]);
 
   const login = async (email, password) => {
@@ -146,10 +186,24 @@ export const AuthProvider = ({ children }) => {
     return { success: true };
   };
 
-  //
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      // Clear cached promises and user refs
+      fetchPromiseRef.current = null;
+      currentUserIdRef.current = null;
+
+      // Sign out from Supabase (clears localStorage automatically)
+      await supabase.auth.signOut();
+
+      // Set user to null
+      setUser(null);
+    } catch (error) {
+      console.error("Error during logout:", error);
+      // Force clear even if signOut fails
+      fetchPromiseRef.current = null;
+      currentUserIdRef.current = null;
+      setUser(null);
+    }
   };
 
   return (

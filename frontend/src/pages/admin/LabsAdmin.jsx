@@ -138,10 +138,25 @@ const LabsAdmin = () => {
   const handleModelFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
+      // Validate file extension
       if (!file.name.toLowerCase().endsWith(".glb")) {
         showSnackbar("Please select a .glb file", "error");
+        event.target.value = null; // Reset input
         return;
       }
+
+      // Validate file size (10MB limit based on 25GB total server storage)
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      if (file.size > maxSize) {
+        const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+        showSnackbar(
+          `File size (${fileSizeMB} MB) exceeds the maximum limit of 10 MB. Please compress your model or choose a smaller file.`,
+          "error"
+        );
+        event.target.value = null; // Reset input
+        return;
+      }
+
       setModelFile(file);
       setFormErrors({ ...formErrors, modelPath: null });
     }
@@ -517,7 +532,7 @@ const LabsAdmin = () => {
                     <>
                       Click to upload or drag and drop
                       <br />
-                      GLB files only
+                      GLB files only (max 10 MB)
                     </>
                   )}
                 </Typography>

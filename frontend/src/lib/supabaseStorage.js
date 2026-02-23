@@ -77,6 +77,16 @@ export async function uploadLabModel(file) {
     return { success: false, error: 'Only .glb files are allowed for lab models' };
   }
 
+  // Validate file size (max 10MB based on 25GB total server storage)
+  const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+  if (file.size > maxSize) {
+    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+    return {
+      success: false,
+      error: `File size (${fileSizeMB} MB) exceeds the maximum limit of 10 MB. Please compress your model or choose a smaller file.`
+    };
+  }
+
   return uploadFile(file, 'lab-models', 'models');
 }
 
