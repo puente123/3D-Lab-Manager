@@ -22,7 +22,6 @@ import {
   Menu as MenuIcon,
   Inventory as InventoryIcon,
   ViewInAr as ViewInArIcon,
-  QrCodeScanner as QrCodeScannerIcon,
   Home as HomeIcon,
   Login as LoginIcon,
   Logout as LogoutIcon,
@@ -57,7 +56,6 @@ function TopNav() {
     { path: "/", label: "Home", icon: <HomeIcon /> },
     { path: "/items", label: "Items", icon: <InventoryIcon /> },
     { path: "/map3d", label: "3D Map", icon: <ViewInArIcon /> },
-    { path: "/scan", label: "Scan", icon: <QrCodeScannerIcon /> },
   ];
 
   // Add Admin link only for admin users
@@ -443,22 +441,20 @@ function TopNav() {
           </Box>
         </Toolbar>
 
-        {/* Sprint indicator for development */}
-        {import.meta.env.DEV && (
-          <Box
-            sx={{
-              backgroundColor: "warning.main",
-              color: "warning.contrastText",
-              py: 0.5,
-              px: 2,
-              textAlign: "center",
-              fontSize: "0.75rem",
-              fontWeight: 500,
-            }}
-          >
-            Sprint 4 Development Build
-          </Box>
-        )}
+        {/* Info banner */}
+        <Box
+          sx={{
+            backgroundColor: "#f97316",
+            color: "white",
+            py: 0.5,
+            px: 2,
+            textAlign: "center",
+            fontSize: "0.75rem",
+            fontWeight: 500,
+          }}
+        >
+          Senior Design Engineering Lab - Equipment Management System
+        </Box>
       </AppBar>
     </>
   );

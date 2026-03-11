@@ -15,10 +15,11 @@ function ProtectedRoute({ children }) {
 
   useEffect(() => {
     if (loading) {
-      // Set a timeout for 10 seconds
+      // Set a longer timeout (60s) since session restoration no longer has a timeout
+      // Only show "Clear cache" option if genuinely stuck
       const timer = setTimeout(() => {
         setLoadingTimeout(true);
-      }, 10000);
+      }, 60000);
 
       return () => clearTimeout(timer);
     } else {

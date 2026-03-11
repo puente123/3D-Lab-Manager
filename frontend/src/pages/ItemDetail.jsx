@@ -5,7 +5,6 @@ import {
   Typography,
   Button,
   Card,
-  CardMedia,
   Chip,
   Grid,
   Breadcrumbs,
@@ -16,6 +15,12 @@ import {
   Paper,
   Divider,
   Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
+  CircularProgress,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -27,10 +32,13 @@ import {
   ShoppingCart as ShoppingCartIcon,
   History as HistoryIcon,
   CheckCircle as CheckCircleIcon,
+  Logout as CheckoutIcon,
 } from "@mui/icons-material";
 
 // API and components
 import { getEquipmentById } from "../lib/supabaseItems.js";
+import { checkoutEquipment, returnEquipment, getActiveCheckout, getCheckoutHistory } from "../lib/supabaseCheckout.js";
+import { useAuth } from "../contexts/AuthContext";
 import IssueModal from "../components/IssueModal";
 import EmptyState from "../components/EmptyState";
 
@@ -43,19 +51,26 @@ function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
 
   // State management
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
+  const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returnLoading, setReturnLoading] = useState(false);
+  const [activeCheckout, setActiveCheckout] = useState(null);
+  const [checkoutHistory, setCheckoutHistory] = useState([]);
   const [toast, setToast] = useState({
     open: false,
     message: "",
     severity: "info",
   });
 
-  // Fetch item data
+  // Fetch item data, active checkout, and checkout history
   useEffect(() => {
     const fetchItem = async () => {
       if (!id) return;
@@ -73,6 +88,18 @@ function ItemDetail() {
         }
 
         setItem(data);
+
+        // If item is checked out, fetch active checkout info
+        if (data.status === "checked_out") {
+          const checkout = await getActiveCheckout(id);
+          setActiveCheckout(checkout);
+        } else {
+          setActiveCheckout(null);
+        }
+
+        // Fetch checkout history (last 3 records)
+        const history = await getCheckoutHistory(id);
+        setCheckoutHistory(history.slice(0, 3));
       } catch (err) {
         console.error("Failed to fetch item:", err);
         setError("Failed to load item details from database.");
@@ -122,6 +149,119 @@ function ItemDetail() {
 
   const handleCloseToast = () => {
     setToast((prev) => ({ ...prev, open: false }));
+  };
+
+  // Checkout handlers
+  const handleOpenCheckoutDialog = () => {
+    setCheckoutDialogOpen(true);
+  };
+
+  const handleCloseCheckoutDialog = () => {
+    setCheckoutDialogOpen(false);
+  };
+
+  const handleConfirmCheckout = async () => {
+    if (!user || !user.id) {
+      setToast({
+        open: true,
+        message: "You must be logged in to check out items.",
+        severity: "error",
+      });
+      return;
+    }
+
+    setCheckoutLoading(true);
+    try {
+      const result = await checkoutEquipment(item.id, user.id);
+
+      if (result.success) {
+        setToast({
+          open: true,
+          message: "Item checked out successfully!",
+          severity: "success",
+        });
+
+        setCheckoutDialogOpen(false);
+
+        // Update local item state and fetch active checkout and history
+        setItem((prev) => ({ ...prev, status: "checked_out" }));
+        const checkout = await getActiveCheckout(item.id);
+        setActiveCheckout(checkout);
+        const history = await getCheckoutHistory(item.id);
+        setCheckoutHistory(history.slice(0, 3));
+      } else {
+        setToast({
+          open: true,
+          message: result.error || "Failed to check out item. Please try again.",
+          severity: "error",
+        });
+      }
+    } catch (err) {
+      console.error("Checkout failed:", err);
+      setToast({
+        open: true,
+        message: "An unexpected error occurred. Please try again.",
+        severity: "error",
+      });
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  // Return handlers
+  const handleOpenReturnDialog = () => {
+    setReturnDialogOpen(true);
+  };
+
+  const handleCloseReturnDialog = () => {
+    setReturnDialogOpen(false);
+  };
+
+  const handleConfirmReturn = async () => {
+    if (!user || !user.id) {
+      setToast({
+        open: true,
+        message: "You must be logged in to return items.",
+        severity: "error",
+      });
+      return;
+    }
+
+    setReturnLoading(true);
+    try {
+      const result = await returnEquipment(item.id, user.id);
+
+      if (result.success) {
+        setToast({
+          open: true,
+          message: "Item returned successfully!",
+          severity: "success",
+        });
+
+        setReturnDialogOpen(false);
+
+        // Update local item state to reflect the return and refresh history
+        setItem((prev) => ({ ...prev, status: "available" }));
+        setActiveCheckout(null);
+        const history = await getCheckoutHistory(item.id);
+        setCheckoutHistory(history.slice(0, 3));
+      } else {
+        setToast({
+          open: true,
+          message: result.error || "Failed to return item. Please try again.",
+          severity: "error",
+        });
+      }
+    } catch (err) {
+      console.error("Return failed:", err);
+      setToast({
+        open: true,
+        message: "An unexpected error occurred. Please try again.",
+        severity: "error",
+      });
+    } finally {
+      setReturnLoading(false);
+    }
   };
 
   // Retry handler
@@ -253,70 +393,100 @@ function ItemDetail() {
           }
         }}
       >
-        <Grid container sx={{ minHeight: 600 }}>
-          {/* Image Section */}
-          <Grid item xs={5} sx={{ height: 600, maxHeight: 600 }}>
+        <Grid
+          container
+          sx={{
+            flexWrap: { xs: "wrap", md: "nowrap" },
+          }}
+        >
+          {/* Image Section - Fixed Height Container */}
+          <Grid
+            item
+            xs={12}
+            md={5}
+            sx={{
+              height: { xs: 400, md: 600 },
+              minHeight: { xs: 400, md: 600 },
+              maxHeight: { xs: 400, md: 600 },
+              flexShrink: 0,
+              width: { xs: "100%", md: "41.666667%" },
+            }}
+          >
             <Box
               sx={{
                 position: "relative",
                 height: "100%",
                 width: "100%",
-                backgroundColor: "grey.50",
+                backgroundColor: "grey.100",
                 overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              {/* Gradient Overlay */}
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.03) 100%)",
-                  zIndex: 1,
-                  pointerEvents: "none"
-                }}
-              />
-
-              <CardMedia
-                component="img"
-                image={item.thumbnailUrl}
-                alt={`${item.name} image`}
-                sx={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  transition: "transform 0.3s ease",
-                  "&:hover": {
-                    transform: "scale(1.02)"
-                  }
-                }}
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-
-              {/* Fallback */}
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  textAlign: "center",
-                  zIndex: 0,
-                }}
-              >
-                <Box sx={{ fontSize: "5rem", mb: 2, opacity: 0.4 }}>📦</Box>
-                <Chip
-                  label={item.category}
+              {/* Image with contain objectFit */}
+              {item.thumbnailUrl ? (
+                <Box
+                  component="img"
+                  src={item.thumbnailUrl}
+                  alt={`${item.name} image`}
                   sx={{
-                    fontWeight: 600,
-                    fontSize: "0.875rem"
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    transition: "transform 0.3s ease",
+                    "&:hover": {
+                      transform: "scale(1.02)"
+                    }
+                  }}
+                  onError={(e) => {
+                    e.target.style.display = "none";
                   }}
                 />
-              </Box>
+              ) : (
+                /* Fallback Placeholder - Full height container */
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: "grey.50",
+                    border: "2px dashed",
+                    borderColor: "grey.300",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      fontSize: "8rem",
+                      mb: 3,
+                      opacity: 0.3,
+                      lineHeight: 1,
+                    }}
+                  >
+                    📦
+                  </Box>
+                  <Typography
+                    variant="h6"
+                    color="text.secondary"
+                    fontWeight={600}
+                    sx={{ mb: 2, opacity: 0.6 }}
+                  >
+                    No Image Available
+                  </Typography>
+                  <Chip
+                    label={item.category}
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: "0.875rem",
+                      backgroundColor: "grey.200",
+                    }}
+                  />
+                </Box>
+              )}
 
               {/* Status Badge Overlay */}
               <Box
@@ -349,8 +519,40 @@ function ItemDetail() {
           </Grid>
 
           {/* Details Section */}
-          <Grid item xs={7}>
-            <Box sx={{ p: { xs: 3, sm: 4, md: 5 }, height: "100%" }}>
+          <Grid
+            item
+            xs={12}
+            md={7}
+            sx={{
+              width: { xs: "100%", md: "58.333333%" },
+              height: { xs: "auto", md: 600 },
+              minHeight: { xs: "auto", md: 600 },
+              maxHeight: { xs: "none", md: 600 },
+              overflow: { xs: "visible", md: "auto" },
+              flexShrink: 0,
+              // Custom scrollbar styling
+              "&::-webkit-scrollbar": {
+                width: "12px",
+              },
+              "&::-webkit-scrollbar-track": {
+                backgroundColor: "grey.100",
+                borderRadius: "0 12px 12px 0",
+              },
+              "&::-webkit-scrollbar-thumb": {
+                backgroundColor: "grey.400",
+                borderRadius: "6px",
+                border: "2px solid",
+                borderColor: "grey.100",
+                "&:hover": {
+                  backgroundColor: "grey.500",
+                },
+              },
+              // Firefox scrollbar
+              scrollbarWidth: "thin",
+              scrollbarColor: "rgba(0, 0, 0, 0.3) rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <Box sx={{ p: { xs: 3, sm: 4, md: 5 }, minHeight: "100%" }}>
               {/* Header */}
               <Box sx={{ mb: 4 }}>
                 <Typography
@@ -500,30 +702,94 @@ function ItemDetail() {
                     </Typography>
                   </Stack>
 
-                  {item.status === "checked_out" ? (
+                  {/* Current Checkout - Highlighted */}
+                  {item.status === "checked_out" && activeCheckout && (
                     <Box
                       sx={{
                         p: 2,
+                        mb: 2,
                         backgroundColor: "warning.50",
                         borderRadius: 1.5,
                         border: "1px solid",
                         borderColor: "warning.200",
                       }}
                     >
-                      <Typography variant="body2" color="warning.dark" fontWeight={600} sx={{ mb: 0.5 }}>
+                      <Typography variant="body2" color="warning.dark" fontWeight={700} sx={{ mb: 1 }}>
                         Currently Checked Out
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Checkout history details will be available when the checkout system is fully implemented.
-                      </Typography>
+                      <Stack spacing={0.5}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <Typography variant="body2" color="text.secondary">
+                            By:
+                          </Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            {activeCheckout.profiles?.full_name || "Unknown User"}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Checked out:
+                          </Typography>
+                          <Typography variant="body2" fontWeight={500}>
+                            {new Date(activeCheckout.checkout_date).toLocaleDateString()} at{" "}
+                            {new Date(activeCheckout.checkout_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </Typography>
+                        </Box>
+                      </Stack>
                     </Box>
+                  )}
+
+                  {/* Historical Checkouts */}
+                  {checkoutHistory.length > 0 ? (
+                    <Stack spacing={1.5}>
+                      {checkoutHistory.map((checkout) => (
+                        <Box
+                          key={checkout.id}
+                          sx={{
+                            p: 2,
+                            backgroundColor: "white",
+                            borderRadius: 1.5,
+                            border: "1px solid",
+                            borderColor: "grey.200",
+                          }}
+                        >
+                          <Stack spacing={0.5}>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <Typography variant="body2" color="text.secondary">
+                                By:
+                              </Typography>
+                              <Typography variant="body2" fontWeight={600}>
+                                {checkout.profiles?.full_name || "Unknown User"}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Checked out:
+                              </Typography>
+                              <Typography variant="body2" fontWeight={500}>
+                                {new Date(checkout.checkout_date).toLocaleDateString()} at{" "}
+                                {new Date(checkout.checkout_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Returned:
+                              </Typography>
+                              <Typography variant="body2" fontWeight={500} color={checkout.return_date ? "success.main" : "error.main"}>
+                                {checkout.return_date
+                                  ? `${new Date(checkout.return_date).toLocaleDateString()} at ${new Date(checkout.return_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                  : "Not returned"}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </Box>
+                      ))}
+                    </Stack>
                   ) : (
                     <Box sx={{ textAlign: "center", py: 2 }}>
                       <HistoryIcon sx={{ fontSize: 40, color: "text.disabled", mb: 1, opacity: 0.5 }} />
                       <Typography variant="body2" color="text.secondary">
-                        {item.status === "available"
-                          ? "No active checkouts"
-                          : "No checkout history available"}
+                        No checkout history available
                       </Typography>
                     </Box>
                   )}
@@ -532,6 +798,109 @@ function ItemDetail() {
 
               {/* Action Buttons */}
               <Stack spacing={2}>
+                {/* Checkout/Return Button - Fixed height container for consistent layout */}
+                <Box
+                  sx={{
+                    minHeight: 72,
+                    display: "flex",
+                    alignItems: "stretch",
+                  }}
+                >
+                  {item.status === "available" ? (
+                    // Show Checkout button for available items
+                    <Button
+                      variant="contained"
+                      size="large"
+                      startIcon={<CheckoutIcon />}
+                      onClick={handleOpenCheckoutDialog}
+                      fullWidth
+                      sx={{
+                        py: 2.5,
+                        fontWeight: 700,
+                        fontSize: "1.125rem",
+                        backgroundColor: "success.main",
+                        color: "white",
+                        boxShadow: "0 4px 12px rgba(46, 125, 50, 0.4)",
+                        textTransform: "none",
+                        "&:hover": {
+                          backgroundColor: "success.dark",
+                          boxShadow: "0 6px 20px rgba(46, 125, 50, 0.5)",
+                          transform: "translateY(-2px)",
+                        },
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      Check Out This Item
+                    </Button>
+                  ) : item.status === "checked_out" && activeCheckout?.user_id === user?.id ? (
+                    // Show Return button if current user checked it out
+                    <Button
+                      variant="contained"
+                      size="large"
+                      startIcon={<CheckoutIcon sx={{ transform: "rotate(180deg)" }} />}
+                      onClick={handleOpenReturnDialog}
+                      fullWidth
+                      sx={{
+                        py: 2.5,
+                        fontWeight: 700,
+                        fontSize: "1.125rem",
+                        backgroundColor: "primary.main",
+                        color: "white",
+                        boxShadow: "0 4px 12px rgba(30, 58, 138, 0.4)",
+                        textTransform: "none",
+                        "&:hover": {
+                          backgroundColor: "primary.dark",
+                          boxShadow: "0 6px 20px rgba(30, 58, 138, 0.5)",
+                          transform: "translateY(-2px)",
+                        },
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      Return This Item
+                    </Button>
+                  ) : item.status === "checked_out" ? (
+                    // Show disabled button if someone else checked it out
+                    <Button
+                      variant="contained"
+                      size="large"
+                      disabled
+                      fullWidth
+                      sx={{
+                        py: 2.5,
+                        fontWeight: 700,
+                        fontSize: "1.125rem",
+                        textTransform: "none",
+                        "&.Mui-disabled": {
+                          backgroundColor: "grey.300",
+                          color: "grey.600",
+                        },
+                      }}
+                    >
+                      Checked Out by {activeCheckout?.profiles?.full_name || "Another User"}
+                    </Button>
+                  ) : (
+                    // Show disabled button for broken/maintenance status
+                    <Button
+                      variant="contained"
+                      size="large"
+                      disabled
+                      fullWidth
+                      sx={{
+                        py: 2.5,
+                        fontWeight: 700,
+                        fontSize: "1.125rem",
+                        textTransform: "none",
+                        "&.Mui-disabled": {
+                          backgroundColor: "grey.300",
+                          color: "grey.600",
+                        },
+                      }}
+                    >
+                      Not Available
+                    </Button>
+                  )}
+                </Box>
+
                 {item.amazonLink && (
                   <Button
                     component="a"
@@ -626,6 +995,218 @@ function ItemDetail() {
         itemId={item.id}
         itemName={item.name}
       />
+
+      {/* Checkout Confirmation Dialog */}
+      <Dialog
+        open={checkoutDialogOpen}
+        onClose={handleCloseCheckoutDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            p: 1,
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontSize: "1.5rem", fontWeight: 700, pb: 1 }}>
+          Confirm Check Out
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2, fontSize: "1rem", color: "text.primary" }}>
+            Are you sure you want to check out this item?
+          </DialogContentText>
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              backgroundColor: "grey.50",
+              border: "1px solid",
+              borderColor: "grey.200",
+              borderRadius: 2,
+            }}
+          >
+            <Stack spacing={1.5}>
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  ITEM NAME
+                </Typography>
+                <Typography variant="body1" fontWeight={600}>
+                  {item.name}
+                </Typography>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  ITEM ID
+                </Typography>
+                <Typography variant="body1" fontFamily="monospace" fontWeight={600}>
+                  {item.id}
+                </Typography>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  LOCATION
+                </Typography>
+                <Typography variant="body1">
+                  {item.locationPath}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+
+          <Alert severity="info" sx={{ mt: 2 }}>
+            You will be responsible for this item until it is returned.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 1 }}>
+          <Button
+            onClick={handleCloseCheckoutDialog}
+            disabled={checkoutLoading}
+            size="large"
+            sx={{
+              fontWeight: 600,
+              textTransform: "none",
+              px: 3,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmCheckout}
+            variant="contained"
+            color="success"
+            disabled={checkoutLoading}
+            size="large"
+            startIcon={checkoutLoading ? <CircularProgress size={20} color="inherit" /> : <CheckoutIcon />}
+            sx={{
+              fontWeight: 700,
+              textTransform: "none",
+              px: 4,
+              boxShadow: "0 4px 12px rgba(46, 125, 50, 0.3)",
+              "&:hover": {
+                boxShadow: "0 6px 20px rgba(46, 125, 50, 0.4)",
+              },
+            }}
+          >
+            {checkoutLoading ? "Checking Out..." : "Confirm Check Out"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Return Confirmation Dialog */}
+      <Dialog
+        open={returnDialogOpen}
+        onClose={handleCloseReturnDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            p: 1,
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontSize: "1.5rem", fontWeight: 700, pb: 1 }}>
+          Confirm Return
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2, fontSize: "1rem", color: "text.primary" }}>
+            Are you sure you want to return this item?
+          </DialogContentText>
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              backgroundColor: "grey.50",
+              border: "1px solid",
+              borderColor: "grey.200",
+              borderRadius: 2,
+            }}
+          >
+            <Stack spacing={1.5}>
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  ITEM NAME
+                </Typography>
+                <Typography variant="body1" fontWeight={600}>
+                  {item.name}
+                </Typography>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  ITEM ID
+                </Typography>
+                <Typography variant="body1" fontFamily="monospace" fontWeight={600}>
+                  {item.id}
+                </Typography>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  LOCATION
+                </Typography>
+                <Typography variant="body1">
+                  {item.locationPath}
+                </Typography>
+              </Box>
+
+              {activeCheckout && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                    CHECKED OUT ON
+                  </Typography>
+                  <Typography variant="body1">
+                    {new Date(activeCheckout.checkout_date).toLocaleDateString()} at{" "}
+                    {new Date(activeCheckout.checkout_date).toLocaleTimeString()}
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
+          </Paper>
+
+          <Alert severity="success" sx={{ mt: 2 }}>
+            This item will become available for others to check out.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 1 }}>
+          <Button
+            onClick={handleCloseReturnDialog}
+            disabled={returnLoading}
+            size="large"
+            sx={{
+              fontWeight: 600,
+              textTransform: "none",
+              px: 3,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmReturn}
+            variant="contained"
+            color="primary"
+            disabled={returnLoading}
+            size="large"
+            startIcon={returnLoading ? <CircularProgress size={20} color="inherit" /> : <CheckoutIcon sx={{ transform: "rotate(180deg)" }} />}
+            sx={{
+              fontWeight: 700,
+              textTransform: "none",
+              px: 4,
+              boxShadow: "0 4px 12px rgba(30, 58, 138, 0.3)",
+              "&:hover": {
+                boxShadow: "0 6px 20px rgba(30, 58, 138, 0.4)",
+              },
+            }}
+          >
+            {returnLoading ? "Returning..." : "Confirm Return"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Success/Error Toast */}
       <Snackbar

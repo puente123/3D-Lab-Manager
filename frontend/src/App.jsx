@@ -28,7 +28,7 @@ import ItemDetail from "./pages/ItemDetail.jsx";
 import Map3d from "./pages/Map3d.jsx"; // Adding 3D viewer page
 import Map3dIndex from "./pages/Map3dIndex.jsx"; // Adding 3D lab grid page
 import Auth from './pages/Auth';
-import Scan from "./pages/Scan.jsx";
+import ResetPassword from './pages/ResetPassword';
 
 // Admin Pages
 import ItemsAdmin from './pages/admin/ItemsAdmin';
@@ -167,8 +167,8 @@ function App() {
                       <Route path="/item/:id" element={<ProtectedRoute><ItemDetail /></ProtectedRoute>} />
                       <Route path="/map3d" element={<ProtectedRoute><Map3dIndex /></ProtectedRoute>} />
                       <Route path="/map3d/:labId" element={<ProtectedRoute><Map3d /></ProtectedRoute>} />
-                      <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
                       <Route path="/auth" element={<Auth />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
                     </Routes>
                   </Container>
                 </Box>

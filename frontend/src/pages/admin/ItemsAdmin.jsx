@@ -29,7 +29,6 @@ import {
   Alert,
   Paper,
   Stack,
-  Divider,
   Grid,
 } from "@mui/material";
 import {
@@ -72,18 +71,10 @@ const ItemsAdmin = () => {
     name: "",
     category: "",
     status: "available",
-    ladId: "",
+    labId: "",
     locationPath: "",
     thumbnailUrl: "",
     amazonLink: "",
-    modelPath: "",
-    scale: 1.0,
-    posX: "",
-    posY: "",
-    posZ: "",
-    rotX: "",
-    rotY: "",
-    rotZ: "",
   });
   const [formErrors, setFormErrors] = useState({});
   const [snackbar, setSnackbar] = useState({
@@ -152,7 +143,7 @@ const ItemsAdmin = () => {
 
   const handleMenuClose = () => {
     setMenuAnchor(null);
-    setCurrentItem(null);
+    // Don't clear currentItem here - it's needed for edit mode
   };
 
   const handleAddClick = () => {
@@ -161,18 +152,10 @@ const ItemsAdmin = () => {
       name: "",
       category: "Tool",
       status: "available",
-      ladId: "",
+      labId: "",
       locationPath: "",
       thumbnailUrl: "",
       amazonLink: "",
-      modelPath: "",
-      scale: 1.0,
-      posX: "",
-      posY: "",
-      posZ: "",
-      rotX: "",
-      rotY: "",
-      rotZ: "",
     });
     setFormErrors({});
     setCurrentItem(null);
@@ -191,14 +174,6 @@ const ItemsAdmin = () => {
       locationPath: currentItem.locationPath || "",
       thumbnailUrl: currentItem.thumbnailUrl || "",
       amazonLink: currentItem.amazonLink || "",
-      modelPath: currentItem.modelPath || "",
-      scale: currentItem.scale || 1.0,
-      posX: currentItem.posX !== undefined ? currentItem.posX : "",
-      posY: currentItem.posY !== undefined ? currentItem.posY : "",
-      posZ: currentItem.posZ !== undefined ? currentItem.posZ : "",
-      rotX: currentItem.rotX !== undefined ? currentItem.rotX : "",
-      rotY: currentItem.rotY !== undefined ? currentItem.rotY : "",
-      rotZ: currentItem.rotZ !== undefined ? currentItem.rotZ : "",
     });
     setFormErrors({});
     setSelectedImageFile(null);
@@ -216,6 +191,7 @@ const ItemsAdmin = () => {
   const handleDialogClose = () => {
     setDialogOpen(false);
     setCurrentItem(null);
+    setMenuAnchor(null); // Also close menu if it's still open
     setFormErrors({});
     setSelectedImageFile(null);
     setImagePreview(null);
@@ -259,29 +235,6 @@ const ItemsAdmin = () => {
       errors.category = "Category is required";
     }
 
-    // Validate 3D fields if model path is provided
-    if (formData.modelPath) {
-      if (!formData.labId) {
-        errors.labId = "Lab is required when 3D model is provided";
-      }
-      if (
-        formData.posX === "" ||
-        formData.posY === "" ||
-        formData.posZ === ""
-      ) {
-        errors.coordinates =
-          "X, Y, Z position coordinates are required when 3D model is provided";
-      }
-      if (
-        formData.rotX === "" ||
-        formData.rotY === "" ||
-        formData.rotZ === ""
-      ) {
-        errors.coordinates =
-          "X, Y, Z rotation coordinates are required when 3D model is provided";
-      }
-    }
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -317,15 +270,7 @@ const ItemsAdmin = () => {
         locationPath: formData.locationPath,
         thumbnailUrl: thumbnailUrl,
         amazonLink: formData.amazonLink,
-        modelPath: formData.modelPath || null,
-        scale: formData.scale ? parseFloat(formData.scale) : null,
         labId: formData.labId || null,
-        posX: formData.posX !== "" ? parseFloat(formData.posX) : null,
-        posY: formData.posY !== "" ? parseFloat(formData.posY) : null,
-        posZ: formData.posZ !== "" ? parseFloat(formData.posZ) : null,
-        rotX: formData.rotX !== "" ? parseFloat(formData.rotX) : null,
-        rotY: formData.rotY !== "" ? parseFloat(formData.rotY) : null,
-        rotZ: formData.rotZ !== "" ? parseFloat(formData.rotZ) : null,
       };
 
       if (currentItem) {
@@ -780,19 +725,8 @@ const ItemsAdmin = () => {
                     placeholder="https://amazon.com/..."
                   />
                 </Grid>
-              </Grid>
-            </Box>
-
-            <Divider />
-
-            {/* 3D Model Information */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                3D Model Information (Optional)
-              </Typography>
-              <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth error={!!formErrors.labId}>
+                  <FormControl fullWidth>
                     <InputLabel>Lab</InputLabel>
                     <Select
                       value={formData.labId}
@@ -810,133 +744,8 @@ const ItemsAdmin = () => {
                         </MenuItem>
                       ))}
                     </Select>
-                    {formErrors.labId && (
-                      <Typography
-                        variant="caption"
-                        color="error"
-                        sx={{ mt: 0.5, ml: 2 }}
-                      >
-                        {formErrors.labId}
-                      </Typography>
-                    )}
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Scale"
-                    fullWidth
-                    type="number"
-                    value={formData.scale}
-                    onChange={(e) =>
-                      setFormData({ ...formData, scale: e.target.value })
-                    }
-                    placeholder="1.0"
-                    inputProps={{ step: 0.1, min: 0.1 }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    label="Model Path"
-                    fullWidth
-                    value={formData.modelPath}
-                    onChange={(e) =>
-                      setFormData({ ...formData, modelPath: e.target.value })
-                    }
-                    placeholder="/models/items/drone.glb"
-                    helperText="Path to 3D model file (.glb)"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="X Position Coordinate"
-                    fullWidth
-                    type="number"
-                    value={formData.posX}
-                    onChange={(e) =>
-                      setFormData({ ...formData, posX: e.target.value })
-                    }
-                    placeholder="0"
-                    inputProps={{ step: 0.1 }}
-                    error={!!formErrors.coordinates}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Y Position Coordinate"
-                    fullWidth
-                    type="number"
-                    value={formData.posY}
-                    onChange={(e) =>
-                      setFormData({ ...formData, posY: e.target.value })
-                    }
-                    placeholder="0"
-                    inputProps={{ step: 0.1 }}
-                    error={!!formErrors.coordinates}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Z Position Coordinate"
-                    fullWidth
-                    type="number"
-                    value={formData.posZ}
-                    onChange={(e) =>
-                      setFormData({ ...formData, posZ: e.target.value })
-                    }
-                    placeholder="0"
-                    inputProps={{ step: 0.1 }}
-                    error={!!formErrors.coordinates}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="X Roation Coordinate"
-                    fullWidth
-                    type="number"
-                    value={formData.rotX}
-                    onChange={(e) =>
-                      setFormData({ ...formData, rotX: e.target.value })
-                    }
-                    placeholder="0"
-                    inputProps={{ step: 0.1 }}
-                    error={!!formErrors.coordinates}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Y Rotation Coordinate"
-                    fullWidth
-                    type="number"
-                    value={formData.rotY}
-                    onChange={(e) =>
-                      setFormData({ ...formData, rotY: e.target.value })
-                    }
-                    placeholder="0"
-                    inputProps={{ step: 0.1 }}
-                    error={!!formErrors.coordinates}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Z Rotation Coordinate"
-                    fullWidth
-                    type="number"
-                    value={formData.rotZ}
-                    onChange={(e) =>
-                      setFormData({ ...formData, rotZ: e.target.value })
-                    }
-                    placeholder="0"
-                    inputProps={{ step: 0.1 }}
-                    error={!!formErrors.coordinates}
-                  />
-                </Grid>
-                {formErrors.coordinates && (
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="error">
-                      {formErrors.coordinates}
-                    </Typography>
-                  </Grid>
-                )}
               </Grid>
             </Box>
           </Stack>
