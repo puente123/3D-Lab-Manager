@@ -112,6 +112,28 @@ export async function uploadLabThumbnail(file) {
 }
 
 /**
+ * Upload equipment 3D model file (.glb)
+ * @param {File} file - GLB file to upload
+ * @returns {Promise<{success: boolean, url?: string, error?: string}>}
+ */
+export async function uploadItemModel(file) {
+  if (!file.name.toLowerCase().endsWith('.glb')) {
+    return { success: false, error: 'Only .glb files are allowed for item models' };
+  }
+
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+    return {
+      success: false,
+      error: `File size (${fileSizeMB} MB) exceeds the maximum limit of 10 MB.`
+    };
+  }
+
+  return uploadFile(file, 'lab-models', 'item-models');
+}
+
+/**
  * Upload equipment thumbnail image
  * @param {File} file - Image file to upload
  * @returns {Promise<{success: boolean, url?: string, error?: string}>}

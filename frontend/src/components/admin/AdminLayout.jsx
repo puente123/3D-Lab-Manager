@@ -32,6 +32,7 @@ import {
   Logout as LogoutIcon,
   Home as HomeIcon,
   ArrowBack as ArrowBackIcon,
+  ViewInAr as ViewInArIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { can, getRoleDisplayName } from '../../lib/permissions';
@@ -74,6 +75,7 @@ const AdminLayout = () => {
     { label: 'Users', path: '/admin/users', icon: <PeopleIcon />, permission: 'admin' },
     { label: 'Labs', path: '/admin/labs', icon: <ScienceIcon />, permission: 'labs.read' },
     { label: 'Issues', path: '/admin/issues', icon: <ReportProblemIcon />, permission: 'issues.read' },
+    { label: '3D Models', path: '/admin/models', icon: <ViewInArIcon />, permission: 'labs.read' },
   ];
 
   const drawer = (

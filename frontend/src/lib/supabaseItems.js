@@ -54,6 +54,9 @@ export async function getEquipment({
     x: item.x,
     y: item.y,
     z: item.z,
+    rotX: item.rot_x,
+    rotY: item.rot_y,
+    rotZ: item.rot_z,
   }));
 }
 
@@ -168,6 +171,9 @@ export async function createEquipment(itemData) {
     x: itemData.x,
     y: itemData.y,
     z: itemData.z,
+    rot_x: itemData.rotX,
+    rot_y: itemData.rotY,
+    rot_z: itemData.rotZ,
   };
 
   const { data, error } = await supabase
@@ -220,6 +226,9 @@ export async function updateEquipment(qrCode, updates) {
   if (updates.x !== undefined) dbUpdates.x = updates.x;
   if (updates.y !== undefined) dbUpdates.y = updates.y;
   if (updates.z !== undefined) dbUpdates.z = updates.z;
+  if (updates.rotX !== undefined) dbUpdates.rot_x = updates.rotX;
+  if (updates.rotY !== undefined) dbUpdates.rot_y = updates.rotY;
+  if (updates.rotZ !== undefined) dbUpdates.rot_z = updates.rotZ;
 
   const { data, error } = await supabase
     .from("equipment")

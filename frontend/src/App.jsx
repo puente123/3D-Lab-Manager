@@ -35,6 +35,7 @@ import ItemsAdmin from './pages/admin/ItemsAdmin';
 import UsersAdmin from './pages/admin/UsersAdmin';
 import LabsAdmin from './pages/admin/LabsAdmin';
 import IssuesAdmin from './pages/admin/IssuesAdmin';
+import ModelsAdmin from './pages/admin/ModelsAdmin';
 
 
 // Material-UI theme configuration matching university standards
@@ -129,6 +130,7 @@ function App() {
             <Route path="users" element={<UsersAdmin />} />
             <Route path="labs" element={<LabsAdmin />} />
             <Route path="issues" element={<IssuesAdmin />} />
+            <Route path="models" element={<ModelsAdmin />} />
           </Route>
 
           {/* Public/User Routes with Main Layout */}
