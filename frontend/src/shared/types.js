@@ -47,6 +47,13 @@ export const ITEM_CATEGORIES = [
   'Material',
   'Electronics',
   'Safety',
+  'Computer',
+  'VR Headset',
+  'Tablet',
+  'Phone',
+  'Webcam',
+  'Network',
+  'Lab Equipment',
   'Other'
 ];
 

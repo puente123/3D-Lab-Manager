@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useEffect, useState } from "react";
+import { Suspense, useMemo, useEffect, useState, useRef } from "react";
 import * as THREE from "three";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
@@ -26,8 +26,6 @@ import {
 import SearchBar from "../components/SearchBar.jsx";
 import { can } from "../lib/permissions";
 import { useAuth } from "../contexts/AuthContext";
-
-const PLACEHOLDER_MODEL = "/models/items/item_placeholder.glb";
 
 function Loader() {
   const { progress } = useProgress();
@@ -110,41 +108,47 @@ function LabModel({ path }) {
 
 // Component to render a single 3D item model
 function ItemModel({ item, isSelected, isHighlighted: _isHighlighted, onSelect }) {
-  const { scene } = useGLTF(item.modelPath);
-  const clonedScene = useMemo(() => scene.clone(), [scene]);
-  const scale = item.scale || 1;
+  try {
+    const { scene } = useGLTF(item.modelPath);
+    const clonedScene = useMemo(() => scene.clone(), [scene]);
+    const scale = item.scale || 1;
 
-  return (
-    <group
-      position={[item.x, item.y, item.z]}
-      rotation={[item.rotX || 0, item.rotY || 0, item.rotZ || 0]}
-      scale={[scale, scale, scale]}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(item.qrCode || item.qr_code || item.id);
-      }}
-    >
-      {/* Selection ring */}
-      {isSelected && (
-        <mesh
-          position={[0, 0.35, 0]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          raycast={() => null}
-        >
-          <ringGeometry args={[0.7, 0.75, 32]} />
-          <meshBasicMaterial color="blue" />
-        </mesh>
-      )}
+    return (
+      <group
+        position={[item.x, item.y, item.z]}
+        rotation={[item.rotX || 0, item.rotY || 0, item.rotZ || 0]}
+        scale={[scale, scale, scale]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(item.qrCode || item.qr_code || item.id);
+        }}
+      >
+        {/* Selection ring */}
+        {isSelected && (
+          <mesh
+            position={[0, 0.35, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            raycast={() => null}
+          >
+            <ringGeometry args={[0.7, 0.75, 32]} />
+            <meshBasicMaterial color="blue" />
+          </mesh>
+        )}
 
-      {/* The model */}
-      <primitive object={clonedScene} />
-    </group>
-  );
+        {/* The model */}
+        <primitive object={clonedScene} />
+      </group>
+    );
+  } catch (error) {
+    console.error(`Failed to load model for ${item.name}:`, error);
+    return null; // Skip rendering if model fails to load
+  }
 }
 
 export default function Map3D() {
   const { labId } = useParams();
   const navigate = useNavigate();
+  const orbitControlsRef = useRef();
   const [lab, setLab] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -187,7 +191,7 @@ export default function Map3D() {
 
     setItems((prev) =>
       prev.map((it) =>
-        it.id === selectedItemId
+        (it.qrCode || it.qr_code || it.id) === selectedItemId
           ? { ...it, [axis]: (Number(it[axis]) || 0) + dir * step }
           : it,
       ),
@@ -196,20 +200,29 @@ export default function Map3D() {
     setDirty(true);
   };
 
+
   const resetSelectedToDb = () => {
     setDirty(false);
   };
 
   const saveSelectedPosition = async () => {
-    const it = items.find((x) => x.id === selectedItemId);
-    if (!it) return;
+    // Find item using the same logic as selection (qrCode || qr_code || id)
+    const it = items.find((x) => (x.qrCode || x.qr_code || x.id) === selectedItemId);
+    if (!it) {
+      console.error('Could not find item to save:', selectedItemId);
+      return;
+    }
+
+    console.log('Saving position for:', it.name, { id: it.id, x: it.x, y: it.y, z: it.z });
 
     try {
       setSaving(true);
       await updateEquipmentPosition(it.id, { x: it.x, y: it.y, z: it.z });
+      console.log('Position saved successfully!');
       setDirty(false);
     } catch (e) {
       console.error("Failed to save position:", e);
+      alert(`Failed to save position: ${e.message}`);
     } finally {
       setSaving(false);
     }
@@ -227,18 +240,35 @@ export default function Map3D() {
 
         const itemsData = await getEquipmentByLabId(labData.id);
 
-        // Normalize fields / set fallback model and  coordinates
-        const itemsReady = itemsData.map((item, idx) => ({
-          ...item,
-          modelPath: item.modelPath || PLACEHOLDER_MODEL,
-          x: item.x ?? idx * 1.0,
-          y: item.y ?? 0,
-          z: item.z ?? 0,
-        }));
+        // Filter to only show items that have valid 3D model URLs
+        // (Supabase Storage URLs start with http:// or https://)
+        const itemsReady = itemsData
+          .filter((item) => {
+            if (!item.modelPath) return false;
+            // Only include models with valid URLs (from Supabase Storage)
+            // Skip local file paths like /models/items/laptop.glb
+            const isValidUrl = item.modelPath.startsWith('http://') || item.modelPath.startsWith('https://');
+            if (!isValidUrl) {
+              console.warn(`Skipping ${item.name}: Invalid model path "${item.modelPath}". Please re-upload the model in ModelsAdmin.`);
+            }
+            return isValidUrl;
+          })
+          .map((item, idx) => ({
+            ...item,
+            x: item.x ?? idx * 1.0,
+            y: item.y ?? 0,
+            z: item.z ?? 0,
+          }));
 
         setItems(itemsReady);
-        // Preload all item models
-        itemsReady.forEach((item) => useGLTF.preload(item.modelPath));
+        // Preload all item models with error handling
+        itemsReady.forEach((item) => {
+          try {
+            useGLTF.preload(item.modelPath);
+          } catch (error) {
+            console.error(`Failed to preload model for ${item.name}:`, error);
+          }
+        });
       } catch (err) {
         console.error("Failed to load lab or items:", err);
         setError(err.message || "Failed to load lab. Please try again.");
@@ -563,10 +593,12 @@ export default function Map3D() {
                   onSelect={setSelectedItemId}
                 />
               ))}
+
             </Bounds>
             <Environment preset="city" />
           </Suspense>
-          <OrbitControls makeDefault enablePan enableZoom enableRotate />
+
+          <OrbitControls ref={orbitControlsRef} makeDefault enablePan enableZoom enableRotate />
         </Canvas>
       </div>
     </Box>

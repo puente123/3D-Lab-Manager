@@ -233,6 +233,38 @@ function ItemCard({ item }) {
           </Typography>
         </Box>
 
+        {/* Equipment Details (Asset Tag, Brand, Model, Serial) */}
+        {(item.assetTag || item.brand || item.model || item.serialNumber) && (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.5,
+              mt: 1,
+              pt: 1,
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              flexShrink: 0
+            }}
+          >
+            {item.assetTag && (
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
+                Asset: {item.assetTag}
+              </Typography>
+            )}
+            {item.brand && item.model && (
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
+                {item.brand} {item.model}
+              </Typography>
+            )}
+            {item.serialNumber && (
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', fontFamily: 'monospace' }}>
+                S/N: {item.serialNumber}
+              </Typography>
+            )}
+          </Box>
+        )}
+
         {/* Amazon Link Button (if available) */}
         {item.amazonLink && (
           <Box

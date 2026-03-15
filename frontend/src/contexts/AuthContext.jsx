@@ -63,14 +63,14 @@ export const AuthProvider = ({ children }) => {
     const startTime = Date.now();
 
     try {
-      // Use shorter timeout per attempt (5s) and rely on retries
+      // Use shorter timeout per attempt (10s) and rely on retries
       const { data: profile, error } = await withTimeout(
         supabase
           .from("profiles")
           .select("role, full_name")
           .eq("id", authUser.id)
           .single(),
-        5000,
+        10000,  // Increased from 5000ms to 10000ms (10 seconds)
         "Get profile"
       );
 

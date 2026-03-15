@@ -41,6 +41,7 @@ import { checkoutEquipment, returnEquipment, getActiveCheckout, getCheckoutHisto
 import { useAuth } from "../contexts/AuthContext";
 import IssueModal from "../components/IssueModal";
 import EmptyState from "../components/EmptyState";
+import EquipmentDetails from "../components/EquipmentDetails";
 
 /**
  * ItemDetail Page Component
@@ -794,6 +795,9 @@ function ItemDetail() {
                     </Box>
                   )}
                 </Paper>
+
+                {/* Equipment Technical Details */}
+                <EquipmentDetails item={item} />
               </Stack>
 
               {/* Action Buttons */}

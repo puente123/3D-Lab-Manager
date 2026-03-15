@@ -45,9 +45,9 @@ import { getLabs } from "../../lib/supabaseLabs";
 import { uploadItemModel } from "../../lib/supabaseStorage";
 
 const generateRandomCoords = () => ({
-  x: parseFloat((Math.random() * 20 - 10).toFixed(2)),
-  y: 0,
-  z: parseFloat((Math.random() * 20 - 10).toFixed(2)),
+  x: parseFloat((Math.random() * 6 - 3).toFixed(2)), // -3 to +3 (smaller range, closer to center)
+  y: 0, // Floor level
+  z: parseFloat((Math.random() * 6 - 3).toFixed(2)), // -3 to +3
   rotX: 0,
   rotY: 0,
   rotZ: 0,
@@ -205,6 +205,9 @@ const ModelsAdmin = () => {
     const targetItem =
       preSelectedItem || items.find((i) => i.id === selectedItemId);
     if (!targetItem) errors.item = "Please select an equipment item";
+    if (!targetItem?.labId) {
+      errors.item = "Equipment must be assigned to a lab first. Please assign a lab in Items Admin.";
+    }
     if (!modelFile && !targetItem?.modelPath)
       errors.modelFile = "Please upload a .glb file";
     setFormErrors(errors);
@@ -523,6 +526,21 @@ const ModelsAdmin = () => {
                 )}
               </FormControl>
             )}
+
+            {/* ── Lab Assignment Display (Read-Only) ── */}
+            <TextField
+              label="Lab Assignment"
+              value={
+                (preSelectedItem || items.find((i) => i.id === selectedItemId))?.labId
+                  ? labs.find(
+                      (l) => l.id === (preSelectedItem || items.find((i) => i.id === selectedItemId))?.labId
+                    )?.name || "Unknown Lab"
+                  : "No Lab Assigned"
+              }
+              fullWidth
+              disabled
+              helperText="To change lab assignment, use Items Admin. ModelsAdmin is for 3D model management only."
+            />
 
             {/* ── Drag & Drop Upload Zone ── */}
             <Box>

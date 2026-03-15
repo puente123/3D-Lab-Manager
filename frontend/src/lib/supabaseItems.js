@@ -57,6 +57,11 @@ export async function getEquipment({
     rotX: item.rot_x,
     rotY: item.rot_y,
     rotZ: item.rot_z,
+    serialNumber: item.serial_number,
+    assetTag: item.asset_tag,
+    brand: item.brand,
+    model: item.model,
+    metadata: item.metadata || {},
   }));
 }
 
@@ -89,6 +94,11 @@ export async function getEquipmentById(qrCode) {
     x: data.x,
     y: data.y,
     z: data.z,
+    serialNumber: data.serial_number,
+    assetTag: data.asset_tag,
+    brand: data.brand,
+    model: data.model,
+    metadata: data.metadata || {},
   };
 }
 
@@ -118,6 +128,11 @@ export async function getEquipmentByLabId(labId) {
     rotX: row.rot_x,
     rotY: row.rot_y,
     rotZ: row.rot_z,
+    serialNumber: row.serial_number,
+    assetTag: row.asset_tag,
+    brand: row.brand,
+    model: row.model,
+    metadata: row.metadata || {},
   }));
 }
 
@@ -148,6 +163,11 @@ export async function getEquipmentByLabCode(labCode) {
     rotX: row.rot_x,
     rotY: row.rot_y,
     rotZ: row.rot_z,
+    serialNumber: row.serial_number,
+    assetTag: row.asset_tag,
+    brand: row.brand,
+    model: row.model,
+    metadata: row.metadata || {},
   }));
 }
 
@@ -174,6 +194,11 @@ export async function createEquipment(itemData) {
     rot_x: itemData.rotX,
     rot_y: itemData.rotY,
     rot_z: itemData.rotZ,
+    serial_number: itemData.serialNumber,
+    asset_tag: itemData.assetTag,
+    brand: itemData.brand,
+    model: itemData.model,
+    metadata: itemData.metadata || {},
   };
 
   const { data, error } = await supabase
@@ -199,6 +224,11 @@ export async function createEquipment(itemData) {
     x: data.x,
     y: data.y,
     z: data.z,
+    serialNumber: data.serial_number,
+    assetTag: data.asset_tag,
+    brand: data.brand,
+    model: data.model,
+    metadata: data.metadata || {},
   };
 }
 
@@ -229,6 +259,11 @@ export async function updateEquipment(qrCode, updates) {
   if (updates.rotX !== undefined) dbUpdates.rot_x = updates.rotX;
   if (updates.rotY !== undefined) dbUpdates.rot_y = updates.rotY;
   if (updates.rotZ !== undefined) dbUpdates.rot_z = updates.rotZ;
+  if (updates.serialNumber !== undefined) dbUpdates.serial_number = updates.serialNumber;
+  if (updates.assetTag !== undefined) dbUpdates.asset_tag = updates.assetTag;
+  if (updates.brand !== undefined) dbUpdates.brand = updates.brand;
+  if (updates.model !== undefined) dbUpdates.model = updates.model;
+  if (updates.metadata !== undefined) dbUpdates.metadata = updates.metadata;
 
   const { data, error } = await supabase
     .from("equipment")
@@ -254,6 +289,11 @@ export async function updateEquipment(qrCode, updates) {
     x: data.x,
     y: data.y,
     z: data.z,
+    serialNumber: data.serial_number,
+    assetTag: data.asset_tag,
+    brand: data.brand,
+    model: data.model,
+    metadata: data.metadata || {},
   };
 }
 
