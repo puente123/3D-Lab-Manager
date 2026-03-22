@@ -17,7 +17,12 @@ import {
   Typography,
   CircularProgress,
   TextField,
+  SwipeableDrawer,
+  Fab,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
+import { Tune as TuneIcon } from "@mui/icons-material";
 import { getLabById } from "../lib/supabaseLabs";
 import {
   getEquipmentByLabId,
@@ -150,10 +155,255 @@ function ItemModel({
   }
 }
 
+// Control Panels Component - reusable for both desktop and mobile
+function ControlPanels({
+  search,
+  setSearch,
+  filtered,
+  getSelectionKey,
+  setSelectedItemId,
+  selectedItem,
+  navigate,
+  labId,
+  step,
+  setStep,
+  selectedItemId,
+  canMoveItems,
+  nudge,
+  saving,
+  dirty,
+  saveSelectedPosition,
+  resetSelectedToDb,
+}) {
+  return (
+    <>
+      {/* Search */}
+      <Box>
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          onClear={() => setSearch("")}
+          onSearch={() => {}}
+          placeholder="Search items in this lab..."
+        />
+        {search.trim() && (
+          <Box
+            sx={{
+              mt: 1,
+              maxHeight: 270,
+              overflowY: "auto",
+              bgcolor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1,
+              boxShadow: 3,
+            }}
+          >
+            {filtered.length === 0 ? (
+              <Typography
+                variant="body2"
+                sx={{ p: 1.5, color: "text.secondary" }}
+              >
+                No matches
+              </Typography>
+            ) : (
+              filtered.slice(0, 12).map((item) => (
+                <Box
+                  key={item.id}
+                  onClick={() => setSelectedItemId(getSelectionKey(item))}
+                  sx={{
+                    px: 1.5,
+                    py: 1,
+                    cursor: "pointer",
+                    "&:hover": { bgcolor: "action.hover" },
+                    borderBottom: "1px solid",
+                    borderColor: "divider",
+                    "&:last-child": { borderBottom: "none" },
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {item.name || `Item ${item.id}`}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary" }}
+                  >
+                    {item.category || item.tag || ""}
+                  </Typography>
+                </Box>
+              ))
+            )}
+          </Box>
+        )}
+      </Box>
+
+      {/* Selected Item Display */}
+      <Box
+        sx={{
+          mt: 2,
+          mb: 2,
+          px: 1.5,
+          py: 1,
+          bgcolor: "background.paper",
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 1,
+        }}
+      >
+        <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
+          Current selected item
+        </Typography>
+        <Typography variant="body1" sx={{ fontWeight: 700 }}>
+          {selectedItem
+            ? selectedItem.name || `Item ${selectedItem.id}`
+            : "None"}
+        </Typography>
+
+        <Button
+          variant="contained"
+          size="small"
+          sx={{ mt: 1 }}
+          disabled={!selectedItem}
+          onClick={() => {
+            const qr =
+              selectedItem?.qrCode ||
+              selectedItem?.qr_code ||
+              selectedItem?.id;
+            navigate(`/item/${qr}`, { state: { fromLabId: labId } });
+          }}
+        >
+          View Item Details
+        </Button>
+      </Box>
+
+      {/* Position Controls */}
+      <Box
+        sx={{
+          mb: 2,
+          px: 1.5,
+          py: 1,
+          bgcolor: "background.paper",
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 1,
+        }}
+      >
+        <Stack spacing={1}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Typography
+              variant="subtitle2"
+              sx={{ color: "text.secondary" }}
+            >
+              Position controls
+            </Typography>
+
+            <TextField
+              label="Step"
+              size="small"
+              value={step}
+              onChange={(e) => setStep(Number(e.target.value) || 0)}
+              sx={{ width: 110 }}
+              inputProps={{ inputMode: "decimal" }}
+            />
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled={!selectedItemId || !canMoveItems}
+              onClick={() => nudge("x", -1)}
+            >
+              X-
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled={!selectedItemId || !canMoveItems}
+              onClick={() => nudge("x", 1)}
+            >
+              X+
+            </Button>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled={!selectedItemId || !canMoveItems}
+              onClick={() => nudge("y", -1)}
+            >
+              Y-
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled={!selectedItemId || !canMoveItems}
+              onClick={() => nudge("y", 1)}
+            >
+              Y+
+            </Button>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled={!selectedItemId || !canMoveItems}
+              onClick={() => nudge("z", -1)}
+            >
+              Z-
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled={!selectedItemId || !canMoveItems}
+              onClick={() => nudge("z", 1)}
+            >
+              Z+
+            </Button>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              fullWidth
+              disabled={
+                !selectedItemId || !canMoveItems || saving || !dirty
+              }
+              onClick={saveSelectedPosition}
+            >
+              {saving ? "Saving..." : dirty ? "Save" : "Saved"}
+            </Button>
+            <Button
+              variant="text"
+              fullWidth
+              disabled={!selectedItemId || !canMoveItems || !dirty}
+              onClick={resetSelectedToDb}
+            >
+              Reset
+            </Button>
+          </Stack>
+
+          {selectedItem && (
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              x={Number(selectedItem.x).toFixed(3)} y=
+              {Number(selectedItem.y).toFixed(3)} z=
+              {Number(selectedItem.z).toFixed(3)}
+            </Typography>
+          )}
+        </Stack>
+      </Box>
+    </>
+  );
+}
+
 export default function Map3D() {
   const { labId } = useParams();
   const navigate = useNavigate();
   const orbitControlsRef = useRef();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [lab, setLab] = useState(null);
   const [items, setItems] = useState([]);
   const [originalItems, setOriginalItems] = useState([]);
@@ -163,10 +413,12 @@ export default function Map3D() {
   const [search, setSearch] = useState("");
   const { user } = useAuth();
   const role = user?.role;
-  const canMoveItems = can(role, "items.write");
+  // Only admins can position 3D items in the lab view
+  const canMoveItems = can(role, "items.position3d");
   const [step, setStep] = useState(0.1);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const getSelectionKey = (item) => item?.qrCode || item?.qr_code || item?.id;
 
@@ -379,231 +631,136 @@ export default function Map3D() {
 
       {/* Camera View */}
       <div style={{ height: "80vh", width: "100%", position: "relative" }}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: 16,
-            left: 16,
-            width: { xs: "calc(100% - 32px)", sm: 360 },
-            zIndex: 10,
-            pointerEvents: "auto",
-          }}
-        >
-          {/* Search: clickable */}
-          <Box>
-            <SearchBar
-              value={search}
-              onChange={setSearch}
-              onClear={() => setSearch("")}
-              onSearch={() => {}}
-              placeholder="Search items in this lab..."
-            />
-            {search.trim() && (
-              <Box
-                sx={{
-                  mt: 1,
-                  maxHeight: 270,
-                  overflowY: "auto",
-                  bgcolor: "background.paper",
-                  border: "1px solid",
-                  borderColor: "divider",
-                  borderRadius: 1,
-                  boxShadow: 3,
-                }}
-              >
-                {filtered.length === 0 ? (
-                  <Typography
-                    variant="body2"
-                    sx={{ p: 1.5, color: "text.secondary" }}
-                  >
-                    No matches
-                  </Typography>
-                ) : (
-                  filtered.slice(0, 12).map((item) => (
-                    <Box
-                      key={item.id}
-                      onClick={() => setSelectedItemId(getSelectionKey(item))}
-                      sx={{
-                        px: 1.5,
-                        py: 1,
-                        cursor: "pointer",
-                        "&:hover": { bgcolor: "action.hover" },
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                        "&:last-child": { borderBottom: "none" },
-                      }}
-                    >
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {item.name || `Item ${item.id}`}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "text.secondary" }}
-                      >
-                        {item.category || item.tag || ""}
-                      </Typography>
-                    </Box>
-                  ))
-                )}
-              </Box>
-            )}
-          </Box>
+        {/* Desktop: Absolute positioned panels */}
+        {!isMobile && (
           <Box
             sx={{
-              mt: 2,
-              mb: 2,
-              px: 1.5,
-              py: 1,
-              bgcolor: "background.paper",
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 1,
+              position: "absolute",
+              top: 16,
+              left: 16,
+              width: 360,
+              zIndex: 10,
+              pointerEvents: "auto",
             }}
           >
-            <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
-              Current selected item
-            </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 700 }}>
-              {selectedItem
-                ? selectedItem.name || `Item ${selectedItem.id}`
-                : "None"}
-            </Typography>
+            <ControlPanels
+              search={search}
+              setSearch={setSearch}
+              filtered={filtered}
+              getSelectionKey={getSelectionKey}
+              setSelectedItemId={setSelectedItemId}
+              selectedItem={selectedItem}
+              navigate={navigate}
+              labId={labId}
+              step={step}
+              setStep={setStep}
+              selectedItemId={selectedItemId}
+              canMoveItems={canMoveItems}
+              nudge={nudge}
+              saving={saving}
+              dirty={dirty}
+              saveSelectedPosition={saveSelectedPosition}
+              resetSelectedToDb={resetSelectedToDb}
+            />
+          </Box>
+        )}
 
-            <Button
-              variant="contained"
-              size="small"
-              sx={{ mt: 1 }}
-              disabled={!selectedItem}
-              onClick={() => {
-                const qr =
-                  selectedItem?.qrCode ||
-                  selectedItem?.qr_code ||
-                  selectedItem?.id; // fallback if id == qr
-                navigate(`/item/${qr}`, { state: { fromLabId: labId } });
+        {/* Mobile: FAB to toggle drawer */}
+        {isMobile && (
+          <Fab
+            color="primary"
+            aria-label="toggle controls"
+            onClick={() => setDrawerOpen(true)}
+            sx={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              zIndex: 10,
+            }}
+          >
+            <TuneIcon />
+          </Fab>
+        )}
+
+        {/* Mobile: SwipeableDrawer */}
+        {isMobile && (
+          <SwipeableDrawer
+            anchor="bottom"
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            onOpen={() => setDrawerOpen(true)}
+            disableSwipeToOpen={false}
+            sx={{
+              "& .MuiDrawer-paper": {
+                height: "75vh",
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+                overflow: "hidden",
+              },
+            }}
+          >
+            <Box
+              sx={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
-              View Item Details
-            </Button>
-          </Box>
-
-          <Box
-            sx={{
-              mb: 2,
-              px: 1.5,
-              py: 1,
-              bgcolor: "background.paper",
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 1,
-            }}
-          >
-            <Stack spacing={1}>
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
+              {/* Drawer Handle */}
+              <Box
+                sx={{
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "center",
+                  py: 1,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  flexShrink: 0,
+                }}
               >
-                <Typography
-                  variant="subtitle2"
-                  sx={{ color: "text.secondary" }}
-                >
-                  Position controls
-                </Typography>
-
-                <TextField
-                  label="Step"
-                  size="small"
-                  value={step}
-                  onChange={(e) => setStep(Number(e.target.value) || 0)}
-                  sx={{ width: 110 }}
-                  inputProps={{ inputMode: "decimal" }}
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 4,
+                    bgcolor: "divider",
+                    borderRadius: 2,
+                  }}
                 />
-              </Stack>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  disabled={!selectedItemId || !canMoveItems}
-                  onClick={() => nudge("x", -1)}
-                >
-                  X-
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  disabled={!selectedItemId || !canMoveItems}
-                  onClick={() => nudge("x", 1)}
-                >
-                  X+
-                </Button>
-              </Stack>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  disabled={!selectedItemId || !canMoveItems}
-                  onClick={() => nudge("y", -1)}
-                >
-                  Y-
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  disabled={!selectedItemId || !canMoveItems}
-                  onClick={() => nudge("y", 1)}
-                >
-                  Y+
-                </Button>
-              </Stack>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  disabled={!selectedItemId || !canMoveItems}
-                  onClick={() => nudge("z", -1)}
-                >
-                  Z-
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  disabled={!selectedItemId || !canMoveItems}
-                  onClick={() => nudge("z", 1)}
-                >
-                  Z+
-                </Button>
-              </Stack>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  disabled={
-                    !selectedItemId || !canMoveItems || saving || !dirty
-                  }
-                  onClick={saveSelectedPosition}
-                >
-                  {saving ? "Saving..." : dirty ? "Save" : "Saved"}
-                </Button>
-                <Button
-                  variant="text"
-                  fullWidth
-                  disabled={!selectedItemId || !canMoveItems || !dirty}
-                  onClick={resetSelectedToDb}
-                >
-                  Reset
-                </Button>
-              </Stack>
+              </Box>
 
-              {selectedItem && (
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  x={Number(selectedItem.x).toFixed(3)} y=
-                  {Number(selectedItem.y).toFixed(3)} z=
-                  {Number(selectedItem.z).toFixed(3)}
-                </Typography>
-              )}
-            </Stack>
-          </Box>
-        </Box>
+              {/* Drawer Content */}
+              <Box
+                sx={{
+                  flex: 1,
+                  overflowY: "auto",
+                  px: 2,
+                  py: 2,
+                }}
+              >
+                <ControlPanels
+                  search={search}
+                  setSearch={setSearch}
+                  filtered={filtered}
+                  getSelectionKey={getSelectionKey}
+                  setSelectedItemId={setSelectedItemId}
+                  selectedItem={selectedItem}
+                  navigate={navigate}
+                  labId={labId}
+                  step={step}
+                  setStep={setStep}
+                  selectedItemId={selectedItemId}
+                  canMoveItems={canMoveItems}
+                  nudge={nudge}
+                  saving={saving}
+                  dirty={dirty}
+                  saveSelectedPosition={saveSelectedPosition}
+                  resetSelectedToDb={resetSelectedToDb}
+                />
+              </Box>
+            </Box>
+          </SwipeableDrawer>
+        )}
         <Canvas
           camera={{ position: [5, 5, 5], fov: 45 }}
           onPointerMissed={() => setSelectedItemId(null)}

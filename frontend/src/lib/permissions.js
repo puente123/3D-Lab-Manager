@@ -7,7 +7,7 @@
  * @type {Record<Role, string[]>}
  */
 export const PERMISSIONS = {
-  admin: ["*"],
+  admin: ["*"], // Admins have all permissions including items.position3d
   labManager: [
     "items.read",
     "items.write",

@@ -46,7 +46,7 @@ function ItemCard({ item }) {
       component={Link}
       to={`/item/${item.id}`}
       sx={{
-        height: 420, // Increased height to show Amazon button completely
+        height: 440, // Increased height to show Amazon button completely
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -120,9 +120,9 @@ function ItemCard({ item }) {
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          gap: 1,
-          p: 2,
-          height: 300, // Increased to accommodate Amazon button
+          gap: 0.75,
+          p: 1.75,
+          height: 320, // Increased to accommodate Amazon button
           overflow: 'hidden',
           flexShrink: 0
         }}
@@ -185,7 +185,7 @@ function ItemCard({ item }) {
         </Box>
 
         {/* Category */}
-        <Box sx={{ height: 32, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+        <Box sx={{ height: 28, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
           <Chip
             label={item.category}
             variant="outlined"
@@ -203,9 +203,9 @@ function ItemCard({ item }) {
             display: 'flex',
             alignItems: 'flex-start',
             gap: 0.5,
-            height: 48, // Fixed height for location section
+            height: 40, // Reduced height for location section
             flexShrink: 0,
-            mt: 1
+            mt: 0.5
           }}
         >
           <LocationIcon
@@ -239,9 +239,9 @@ function ItemCard({ item }) {
             sx={{
               display: 'flex',
               flexDirection: 'column',
-              gap: 0.5,
-              mt: 1,
-              pt: 1,
+              gap: 0.25,
+              mt: 0.5,
+              pt: 0.75,
               borderTop: '1px solid',
               borderColor: 'divider',
               flexShrink: 0
@@ -269,7 +269,7 @@ function ItemCard({ item }) {
         {item.amazonLink && (
           <Box
             sx={{
-              pt: 1,
+              pt: 0.5,
               flexShrink: 0
             }}
           >
@@ -316,7 +316,7 @@ function ItemCard({ item }) {
             borderColor: 'divider',
             height: 20, // Fixed height for button area
             flexShrink: 0,
-            mt: item.amazonLink ? 1 : 'auto' // Adjust margin based on Amazon link presence
+            mt: item.amazonLink ? 0.5 : 'auto' // Adjust margin based on Amazon link presence
           }}
         >
           <Typography
