@@ -107,7 +107,12 @@ function LabModel({ path }) {
 }
 
 // Component to render a single 3D item model
-function ItemModel({ item, isSelected, isHighlighted: _isHighlighted, onSelect }) {
+function ItemModel({
+  item,
+  isSelected,
+  isHighlighted: _isHighlighted,
+  onSelect,
+}) {
   try {
     const { scene } = useGLTF(item.modelPath);
     const clonedScene = useMemo(() => scene.clone(), [scene]);
@@ -151,15 +156,19 @@ export default function Map3D() {
   const orbitControlsRef = useRef();
   const [lab, setLab] = useState(null);
   const [items, setItems] = useState([]);
+  const [originalItems, setOriginalItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [search, setSearch] = useState("");
-  const { role } = useAuth();
+  const { user } = useAuth();
+  const role = user?.role;
   const canMoveItems = can(role, "items.write");
   const [step, setStep] = useState(0.1);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+
+  const getSelectionKey = (item) => item?.qrCode || item?.qr_code || item?.id;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -179,11 +188,7 @@ export default function Map3D() {
 
   const selectedItem = useMemo(() => {
     if (!selectedItemId) return null;
-    return (
-      items.find(
-        (it) => (it.qrCode || it.qr_code || it.id) === selectedItemId,
-      ) ?? null
-    );
+    return items.find((it) => getSelectionKey(it) === selectedItemId) ?? null;
   }, [items, selectedItemId]);
 
   const nudge = (axis, dir) => {
@@ -191,7 +196,7 @@ export default function Map3D() {
 
     setItems((prev) =>
       prev.map((it) =>
-        (it.qrCode || it.qr_code || it.id) === selectedItemId
+        getSelectionKey(it) === selectedItemId
           ? { ...it, [axis]: (Number(it[axis]) || 0) + dir * step }
           : it,
       ),
@@ -200,25 +205,45 @@ export default function Map3D() {
     setDirty(true);
   };
 
-
   const resetSelectedToDb = () => {
+    if (!selectedItemId) return;
+
+    setItems((prev) =>
+      prev.map((it) => {
+        if (getSelectionKey(it) !== selectedItemId) return it;
+
+        const original = originalItems.find(
+          (orig) => getSelectionKey(orig) === selectedItemId,
+        );
+
+        return original
+          ? { ...it, x: original.x, y: original.y, z: original.z }
+          : it;
+      }),
+    );
+
     setDirty(false);
   };
 
   const saveSelectedPosition = async () => {
     // Find item using the same logic as selection (qrCode || qr_code || id)
-    const it = items.find((x) => (x.qrCode || x.qr_code || x.id) === selectedItemId);
+    const it = items.find((x) => getSelectionKey(x) === selectedItemId);
     if (!it) {
-      console.error('Could not find item to save:', selectedItemId);
+      console.error("Could not find item to save:", selectedItemId);
       return;
     }
 
-    console.log('Saving position for:', it.name, { id: it.id, x: it.x, y: it.y, z: it.z });
+    console.log("Saving position for:", it.name, {
+      id: it.id,
+      x: it.x,
+      y: it.y,
+      z: it.z,
+    });
 
     try {
       setSaving(true);
       await updateEquipmentPosition(it.id, { x: it.x, y: it.y, z: it.z });
-      console.log('Position saved successfully!');
+      console.log("Position saved successfully!");
       setDirty(false);
     } catch (e) {
       console.error("Failed to save position:", e);
@@ -247,9 +272,13 @@ export default function Map3D() {
             if (!item.modelPath) return false;
             // Only include models with valid URLs (from Supabase Storage)
             // Skip local file paths like /models/items/laptop.glb
-            const isValidUrl = item.modelPath.startsWith('http://') || item.modelPath.startsWith('https://');
+            const isValidUrl =
+              item.modelPath.startsWith("http://") ||
+              item.modelPath.startsWith("https://");
             if (!isValidUrl) {
-              console.warn(`Skipping ${item.name}: Invalid model path "${item.modelPath}". Please re-upload the model in ModelsAdmin.`);
+              console.warn(
+                `Skipping ${item.name}: Invalid model path "${item.modelPath}". Please re-upload the model in ModelsAdmin.`,
+              );
             }
             return isValidUrl;
           })
@@ -261,6 +290,7 @@ export default function Map3D() {
           }));
 
         setItems(itemsReady);
+        setOriginalItems(itemsReady);
         // Preload all item models with error handling
         itemsReady.forEach((item) => {
           try {
@@ -356,162 +386,11 @@ export default function Map3D() {
             left: 16,
             width: { xs: "calc(100% - 32px)", sm: 360 },
             zIndex: 10,
-            pointerEvents: "none",
+            pointerEvents: "auto",
           }}
         >
           {/* Search: clickable */}
-          <Box sx={{ pointerEvents: "auto" }}>
-            <Box
-              sx={{
-                mb: 2,
-                px: 1.5,
-                py: 1,
-                bgcolor: "background.paper",
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="subtiltle2" sx={{ color: "text.secondary" }}>
-                Current selected item
-              </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                {selectedItem
-                  ? selectedItem.name || `Item ${selectedItem.id}`
-                  : "None"}
-              </Typography>
-
-              <Button
-                variant="contained"
-                size="small"
-                sx={{ mt: 1 }}
-                disabled={!selectedItem}
-                onClick={() => {
-                  const qr =
-                    selectedItem?.qrCode ||
-                    selectedItem?.qr_code ||
-                    selectedItem?.id; // fallback if id == qr
-                  navigate(`/item/${qr}`, { state: { fromLabId: labId } });
-                }}
-              >
-                View Item Details
-              </Button>
-            </Box>
-            <Box
-              sx={{
-                mb: 2,
-                px: 1.5,
-                py: 1,
-                bgcolor: "background.paper",
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: 1,
-              }}
-            >
-              <Stack spacing={1}>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    Position controls
-                  </Typography>
-
-                  <TextField
-                    label="Step"
-                    size="small"
-                    value={step}
-                    onChange={(e) => setStep(Number(e.target.value) || 0)}
-                    sx={{ width: 110 }}
-                    inputProps={{ inputMode: "decimal" }}
-                  />
-                </Stack>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("x", -1)}
-                  >
-                    X-
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("x", 1)}
-                  >
-                    X+
-                  </Button>
-                </Stack>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("y", -1)}
-                  >
-                    Y-
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("y", 1)}
-                  >
-                    Y+
-                  </Button>
-                </Stack>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("z", -1)}
-                  >
-                    Z-
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={!selectedItemId}
-                    onClick={() => nudge("z", 1)}
-                  >
-                    Z+
-                  </Button>
-                </Stack>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    disabled={!selectedItemId || saving || !dirty}
-                    onClick={saveSelectedPosition}
-                  >
-                    {saving ? "Saving..." : dirty ? "Save" : "Saved"}
-                  </Button>
-                  <Button
-                    variant="text"
-                    fullWidth
-                    disabled={!selectedItemId || !dirty}
-                    onClick={resetSelectedToDb}
-                  >
-                    Reset
-                  </Button>
-                </Stack>
-
-                {selectedItem && (
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "text.secondary" }}
-                  >
-                    x={Number(selectedItem.x).toFixed(3)} y=
-                    {Number(selectedItem.y).toFixed(3)} z=
-                    {Number(selectedItem.z).toFixed(3)}
-                  </Typography>
-                )}
-              </Stack>
-            </Box>
+          <Box>
             <SearchBar
               value={search}
               onChange={setSearch}
@@ -543,7 +422,7 @@ export default function Map3D() {
                   filtered.slice(0, 12).map((item) => (
                     <Box
                       key={item.id}
-                      onClick={() => setSelectedItemId(item.id)}
+                      onClick={() => setSelectedItemId(getSelectionKey(item))}
                       sx={{
                         px: 1.5,
                         py: 1,
@@ -569,6 +448,161 @@ export default function Map3D() {
               </Box>
             )}
           </Box>
+          <Box
+            sx={{
+              mt: 2,
+              mb: 2,
+              px: 1.5,
+              py: 1,
+              bgcolor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
+              Current selected item
+            </Typography>
+            <Typography variant="body1" sx={{ fontWeight: 700 }}>
+              {selectedItem
+                ? selectedItem.name || `Item ${selectedItem.id}`
+                : "None"}
+            </Typography>
+
+            <Button
+              variant="contained"
+              size="small"
+              sx={{ mt: 1 }}
+              disabled={!selectedItem}
+              onClick={() => {
+                const qr =
+                  selectedItem?.qrCode ||
+                  selectedItem?.qr_code ||
+                  selectedItem?.id; // fallback if id == qr
+                navigate(`/item/${qr}`, { state: { fromLabId: labId } });
+              }}
+            >
+              View Item Details
+            </Button>
+          </Box>
+
+          <Box
+            sx={{
+              mb: 2,
+              px: 1.5,
+              py: 1,
+              bgcolor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1,
+            }}
+          >
+            <Stack spacing={1}>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                <Typography
+                  variant="subtitle2"
+                  sx={{ color: "text.secondary" }}
+                >
+                  Position controls
+                </Typography>
+
+                <TextField
+                  label="Step"
+                  size="small"
+                  value={step}
+                  onChange={(e) => setStep(Number(e.target.value) || 0)}
+                  sx={{ width: 110 }}
+                  inputProps={{ inputMode: "decimal" }}
+                />
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  disabled={!selectedItemId || !canMoveItems}
+                  onClick={() => nudge("x", -1)}
+                >
+                  X-
+                </Button>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  disabled={!selectedItemId || !canMoveItems}
+                  onClick={() => nudge("x", 1)}
+                >
+                  X+
+                </Button>
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  disabled={!selectedItemId || !canMoveItems}
+                  onClick={() => nudge("y", -1)}
+                >
+                  Y-
+                </Button>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  disabled={!selectedItemId || !canMoveItems}
+                  onClick={() => nudge("y", 1)}
+                >
+                  Y+
+                </Button>
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  disabled={!selectedItemId || !canMoveItems}
+                  onClick={() => nudge("z", -1)}
+                >
+                  Z-
+                </Button>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  disabled={!selectedItemId || !canMoveItems}
+                  onClick={() => nudge("z", 1)}
+                >
+                  Z+
+                </Button>
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  disabled={
+                    !selectedItemId || !canMoveItems || saving || !dirty
+                  }
+                  onClick={saveSelectedPosition}
+                >
+                  {saving ? "Saving..." : dirty ? "Save" : "Saved"}
+                </Button>
+                <Button
+                  variant="text"
+                  fullWidth
+                  disabled={!selectedItemId || !canMoveItems || !dirty}
+                  onClick={resetSelectedToDb}
+                >
+                  Reset
+                </Button>
+              </Stack>
+
+              {selectedItem && (
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  x={Number(selectedItem.x).toFixed(3)} y=
+                  {Number(selectedItem.y).toFixed(3)} z=
+                  {Number(selectedItem.z).toFixed(3)}
+                </Typography>
+              )}
+            </Stack>
+          </Box>
         </Box>
         <Canvas
           camera={{ position: [5, 5, 5], fov: 45 }}
@@ -586,19 +620,23 @@ export default function Map3D() {
                 <ItemModel
                   key={item.id}
                   item={item}
-                  isSelected={
-                    selectedItemId === (item.qrCode || item.qr_code || item.id)
-                  }
+                  itemKey={getSelectionKey(item)}
+                  isSelected={selectedItemId === getSelectionKey(item)}
                   isHighlighted={highlightedIds.has(item.id)}
                   onSelect={setSelectedItemId}
                 />
               ))}
-
             </Bounds>
             <Environment preset="city" />
           </Suspense>
 
-          <OrbitControls ref={orbitControlsRef} makeDefault enablePan enableZoom enableRotate />
+          <OrbitControls
+            ref={orbitControlsRef}
+            makeDefault
+            enablePan
+            enableZoom
+            enableRotate
+          />
         </Canvas>
       </div>
     </Box>

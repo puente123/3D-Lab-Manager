@@ -259,7 +259,8 @@ export async function updateEquipment(qrCode, updates) {
   if (updates.rotX !== undefined) dbUpdates.rot_x = updates.rotX;
   if (updates.rotY !== undefined) dbUpdates.rot_y = updates.rotY;
   if (updates.rotZ !== undefined) dbUpdates.rot_z = updates.rotZ;
-  if (updates.serialNumber !== undefined) dbUpdates.serial_number = updates.serialNumber;
+  if (updates.serialNumber !== undefined)
+    dbUpdates.serial_number = updates.serialNumber;
   if (updates.assetTag !== undefined) dbUpdates.asset_tag = updates.assetTag;
   if (updates.brand !== undefined) dbUpdates.brand = updates.brand;
   if (updates.model !== undefined) dbUpdates.model = updates.model;
@@ -357,19 +358,19 @@ export async function checkoutItem(qrCode, userId) {
     .eq("qr_code", qrCode);
 
   if (updateError) {
-    throw new Error(`Failed to update equipment status: ${updateError.message}`);
+    throw new Error(
+      `Failed to update equipment status: ${updateError.message}`,
+    );
   }
 
   // Step 4: Insert checkout record into checkout_log
-  const { error: logError } = await supabase
-    .from("checkout_log")
-    .insert([
-      {
-        equipment_id: equipment.id,
-        user_id: userId,
-        checkout_date: new Date().toISOString(),
-      },
-    ]);
+  const { error: logError } = await supabase.from("checkout_log").insert([
+    {
+      equipment_id: equipment.id,
+      user_id: userId,
+      checkout_date: new Date().toISOString(),
+    },
+  ]);
 
   if (logError) {
     // Rollback the status update if logging fails
