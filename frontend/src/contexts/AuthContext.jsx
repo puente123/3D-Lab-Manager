@@ -58,19 +58,20 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
 
+    const userId = authUser.id;
     const maxRetries = 2;
-    console.log(`[Auth] Fetching profile for user: ${authUser.id} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    console.log(`[Auth] Fetching profile for user: ${userId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
     const startTime = Date.now();
 
     try {
-      // Use shorter timeout per attempt (10s) and rely on retries
+      // Increased timeout to 20s to handle slow Supabase connections on free tier
       const { data: profile, error } = await withTimeout(
         supabase
           .from("profiles")
           .select("role, full_name")
           .eq("id", authUser.id)
           .single(),
-        10000,  // Increased from 5000ms to 10000ms (10 seconds)
+        20000,  // Increased from 10000ms to 20000ms (20 seconds) for free tier
         "Get profile"
       );
 

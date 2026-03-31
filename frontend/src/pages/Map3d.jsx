@@ -111,6 +111,54 @@ function LabModel({ path }) {
   return <primitive object={group} />;
 }
 
+// Fallback component for failed models
+function ModelFallback({ item, isSelected, onSelect }) {
+  return (
+    <group
+      position={[item.x, item.y, item.z]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(item.qrCode || item.qr_code || item.id);
+      }}
+    >
+      {/* Selection ring for fallback */}
+      {isSelected && (
+        <mesh
+          position={[0, 0.35, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          raycast={() => null}
+        >
+          <ringGeometry args={[0.7, 0.75, 32]} />
+          <meshBasicMaterial color="blue" />
+        </mesh>
+      )}
+
+      {/* Red error cube fallback */}
+      <mesh>
+        <boxGeometry args={[0.5, 0.5, 0.5]} />
+        <meshStandardMaterial color="#ff4444" wireframe />
+      </mesh>
+
+      {/* Error label */}
+      <Html position={[0, 0.5, 0]} center>
+        <div
+          style={{
+            background: "rgba(255, 68, 68, 0.9)",
+            color: "white",
+            padding: "4px 8px",
+            borderRadius: "4px",
+            fontSize: "10px",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+          }}
+        >
+          ❌ Model Error
+        </div>
+      </Html>
+    </group>
+  );
+}
+
 // Component to render a single 3D item model
 function ItemModel({
   item,
@@ -118,41 +166,44 @@ function ItemModel({
   isHighlighted: _isHighlighted,
   onSelect,
 }) {
-  try {
-    const { scene } = useGLTF(item.modelPath);
-    const clonedScene = useMemo(() => scene.clone(), [scene]);
-    const scale = item.scale || 1;
+  // Hooks must be called unconditionally at the top level
+  const { scene } = useGLTF(item.modelPath, true, true, (loader) => {
+    loader.manager.onError = (url) => {
+      console.error(`[Map3D] ❌ Failed to load model for "${item.name}":`, {
+        modelPath: url,
+        itemId: item.id,
+      });
+    };
+  });
+  const clonedScene = useMemo(() => scene.clone(), [scene]);
+  const scale = item.scale || 1;
 
-    return (
-      <group
-        position={[item.x, item.y, item.z]}
-        rotation={[item.rotX || 0, item.rotY || 0, item.rotZ || 0]}
-        scale={[scale, scale, scale]}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect(item.qrCode || item.qr_code || item.id);
-        }}
-      >
-        {/* Selection ring */}
-        {isSelected && (
-          <mesh
-            position={[0, 0.35, 0]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            raycast={() => null}
-          >
-            <ringGeometry args={[0.7, 0.75, 32]} />
-            <meshBasicMaterial color="blue" />
-          </mesh>
-        )}
+  return (
+    <group
+      position={[item.x, item.y, item.z]}
+      rotation={[item.rotX || 0, item.rotY || 0, item.rotZ || 0]}
+      scale={[scale, scale, scale]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(item.qrCode || item.qr_code || item.id);
+      }}
+    >
+      {/* Selection ring */}
+      {isSelected && (
+        <mesh
+          position={[0, 0.35, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          raycast={() => null}
+        >
+          <ringGeometry args={[0.7, 0.75, 32]} />
+          <meshBasicMaterial color="blue" />
+        </mesh>
+      )}
 
-        {/* The model */}
-        <primitive object={clonedScene} />
-      </group>
-    );
-  } catch (error) {
-    console.error(`Failed to load model for ${item.name}:`, error);
-    return null; // Skip rendering if model fails to load
-  }
+      {/* The model */}
+      <primitive object={clonedScene} />
+    </group>
+  );
 }
 
 // Control Panels Component - reusable for both desktop and mobile
@@ -513,6 +564,28 @@ export default function Map3D() {
 
         // Fetch lab details
         const labData = await getLabById(labId);
+
+        // Validate lab model path
+        if (!labData.modelPath) {
+          throw new Error(
+            `Lab "${labData.name}" has no 3D model. Please upload a model in Labs Admin.`
+          );
+        }
+
+        // Check if lab model path is valid (must be Supabase Storage URL or local file that exists)
+        const isValidUrl =
+          labData.modelPath.startsWith("http://") ||
+          labData.modelPath.startsWith("https://");
+
+        if (!isValidUrl) {
+          console.warn(
+            `[Map3D] ⚠️ Lab "${labData.name}" uses local file path: ${labData.modelPath}`
+          );
+          console.warn(
+            `[Map3D] ⚠️ If the model fails to load, please re-upload via Labs Admin to use Supabase Storage`
+          );
+        }
+
         setLab(labData);
 
         const itemsData = await getEquipmentByLabId(labData.id);
@@ -543,14 +616,10 @@ export default function Map3D() {
 
         setItems(itemsReady);
         setOriginalItems(itemsReady);
-        // Preload all item models with error handling
-        itemsReady.forEach((item) => {
-          try {
-            useGLTF.preload(item.modelPath);
-          } catch (error) {
-            console.error(`Failed to preload model for ${item.name}:`, error);
-          }
-        });
+
+        // ⚠️ DON'T preload all models at once - causes memory crash with many large files
+        // Instead, let Suspense lazy-load models on-demand when they're rendered
+        console.log(`[Map3D] Loaded ${itemsReady.length} items with 3D models (lazy loading enabled)`);
       } catch (err) {
         console.error("Failed to load lab or items:", err);
         setError(err.message || "Failed to load lab. Please try again.");
@@ -579,8 +648,16 @@ export default function Map3D() {
 
   if (error || !lab) {
     return (
-      <Box>
-        <Typography variant="h2">{error || "Lab not found"}</Typography>
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h2" color="error" gutterBottom>
+          {error || "Lab not found"}
+        </Typography>
+        {error && error.includes("no 3D model") && (
+          <Typography variant="body1" sx={{ mt: 2, mb: 2 }}>
+            This lab needs a 3D model to be uploaded. Please go to the Labs
+            Admin page to upload a .glb model file.
+          </Typography>
+        )}
         <Button
           sx={{ mt: 2 }}
           component={RouterLink}
@@ -588,6 +665,14 @@ export default function Map3D() {
           variant="contained"
         >
           Back to Labs
+        </Button>
+        <Button
+          sx={{ mt: 2, ml: 2 }}
+          component={RouterLink}
+          to="/admin/labs"
+          variant="outlined"
+        >
+          Go to Labs Admin
         </Button>
       </Box>
     );
@@ -769,19 +854,25 @@ export default function Map3D() {
           <directionalLight position={[5, 5, 5]} intensity={0.9} />
           <Suspense fallback={<Loader />}>
             <Bounds fit observe margin={1}>
-              {/* Lab Model */}
-              <LabModel key={lab.modelPath} path={lab.modelPath} />
+              {/* Lab Model - only render if valid path */}
+              {lab.modelPath &&
+                (lab.modelPath.startsWith("http://") ||
+                  lab.modelPath.startsWith("https://") ||
+                  lab.modelPath.startsWith("/models/")) && (
+                  <LabModel key={lab.modelPath} path={lab.modelPath} />
+                )}
 
-              {/* Item Models */}
+              {/* Item Models - each wrapped in Suspense for independent lazy loading */}
               {items.map((item) => (
-                <ItemModel
-                  key={item.id}
-                  item={item}
-                  itemKey={getSelectionKey(item)}
-                  isSelected={selectedItemId === getSelectionKey(item)}
-                  isHighlighted={highlightedIds.has(item.id)}
-                  onSelect={setSelectedItemId}
-                />
+                <Suspense key={item.id} fallback={null}>
+                  <ItemModel
+                    item={item}
+                    itemKey={getSelectionKey(item)}
+                    isSelected={selectedItemId === getSelectionKey(item)}
+                    isHighlighted={highlightedIds.has(item.id)}
+                    onSelect={setSelectedItemId}
+                  />
+                </Suspense>
               ))}
             </Bounds>
             <Environment preset="city" />
