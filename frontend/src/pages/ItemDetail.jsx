@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
@@ -33,7 +33,10 @@ import {
   History as HistoryIcon,
   CheckCircle as CheckCircleIcon,
   Logout as CheckoutIcon,
+  Download as DownloadIcon,
+  Print as PrintIcon,
 } from "@mui/icons-material";
+import { QRCodeCanvas } from "qrcode.react";
 
 // API and components
 import { getEquipmentById } from "../lib/supabaseItems.js";
@@ -53,6 +56,7 @@ function ItemDetail() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const qrCodeRef = useRef(null);
 
   // State management
   const [item, setItem] = useState(null);
@@ -268,6 +272,71 @@ function ItemDetail() {
   // Retry handler
   const handleRetry = () => {
     window.location.reload();
+  };
+
+  // QR Code handlers
+  const handleDownloadQR = () => {
+    if (qrCodeRef.current) {
+      const canvas = qrCodeRef.current.querySelector("canvas");
+      if (canvas) {
+        const url = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${item.id}-QR-Code.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setToast({
+          open: true,
+          message: "QR code downloaded successfully!",
+          severity: "success",
+        });
+      }
+    }
+  };
+
+  const handlePrintQR = () => {
+    if (qrCodeRef.current) {
+      const canvas = qrCodeRef.current.querySelector("canvas");
+      if (canvas) {
+        const printWindow = window.open("", "", "width=600,height=600");
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Print QR Code - ${item.name}</title>
+              <style>
+                body {
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 20px;
+                  font-family: Arial, sans-serif;
+                }
+                h2 { margin: 10px 0; }
+                p { margin: 5px 0; font-size: 14px; }
+                .qr-container { margin: 20px 0; }
+              </style>
+            </head>
+            <body>
+              <h2>${item.name}</h2>
+              <p><strong>Item ID:</strong> ${item.id}</p>
+              <p><strong>Location:</strong> ${item.locationPath}</p>
+              <div class="qr-container">
+                <img src="${canvas.toDataURL("image/png")}" alt="QR Code" />
+              </div>
+              <p>Scan to access item details and checkout</p>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 250);
+      }
+    }
   };
 
   // Status chip configuration
@@ -667,22 +736,84 @@ function ItemDetail() {
                     textAlign: "center",
                   }}
                 >
-                  <QrCodeIcon sx={{ fontSize: 48, color: "primary.main", mb: 1.5 }} />
-                  <Typography
-                    variant="h4"
+                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mb: 2 }}>
+                    <QrCodeIcon sx={{ fontSize: 24, color: "primary.main" }} />
+                    <Typography variant="h6" fontWeight={700} color="primary.dark">
+                      Item QR Code
+                    </Typography>
+                  </Stack>
+
+                  {/* QR Code Display */}
+                  <Box
+                    ref={qrCodeRef}
                     sx={{
-                      fontWeight: 700,
+                      display: "inline-block",
+                      p: 2,
+                      backgroundColor: "white",
+                      borderRadius: 2,
+                      mb: 2,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                    }}
+                  >
+                    <QRCodeCanvas
+                      value={`https://3dlab.e16a.com/item/${item.id}`}
+                      size={200}
+                      level="H"
+                      marginSize={4}
+                    />
+                  </Box>
+
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 600,
                       fontFamily: "monospace",
                       color: "primary.dark",
-                      mb: 0.5,
-                      letterSpacing: 1,
+                      mb: 1,
+                      letterSpacing: 0.5,
                     }}
                   >
                     {item.id}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                    Scan this item's QR code label
+                  <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ mb: 2 }}>
+                    Scan to access this item's checkout page
                   </Typography>
+
+                  {/* Download and Print Buttons */}
+                  <Stack direction="row" spacing={1.5} justifyContent="center">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<DownloadIcon />}
+                      onClick={handleDownloadQR}
+                      sx={{
+                        fontWeight: 600,
+                        textTransform: "none",
+                        borderWidth: 2,
+                        "&:hover": {
+                          borderWidth: 2,
+                        },
+                      }}
+                    >
+                      Download
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<PrintIcon />}
+                      onClick={handlePrintQR}
+                      sx={{
+                        fontWeight: 600,
+                        textTransform: "none",
+                        borderWidth: 2,
+                        "&:hover": {
+                          borderWidth: 2,
+                        },
+                      }}
+                    >
+                      Print
+                    </Button>
+                  </Stack>
                 </Paper>
 
                 {/* Checkout History Card */}
@@ -703,7 +834,7 @@ function ItemDetail() {
                     </Typography>
                   </Stack>
 
-                  {/* Current Checkout - Highlighted */}
+                  {/* Current Checkout - Highlighted with role-based visibility */}
                   {item.status === "checked_out" && activeCheckout && (
                     <Box
                       sx={{
@@ -724,7 +855,12 @@ function ItemDetail() {
                             By:
                           </Typography>
                           <Typography variant="body2" fontWeight={600}>
-                            {activeCheckout.profiles?.full_name || "Unknown User"}
+                            {/* Admin users see full names, regular users see anonymized for privacy */}
+                            {user?.role === "admin"
+                              ? (activeCheckout.profiles?.full_name || "Unknown User")
+                              : (activeCheckout.user_id === user?.id
+                                  ? (activeCheckout.profiles?.full_name || "You")
+                                  : "Another User")}
                           </Typography>
                         </Box>
                         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -740,7 +876,7 @@ function ItemDetail() {
                     </Box>
                   )}
 
-                  {/* Historical Checkouts */}
+                  {/* Historical Checkouts - Role-based visibility */}
                   {checkoutHistory.length > 0 ? (
                     <Stack spacing={1.5}>
                       {checkoutHistory.map((checkout) => (
@@ -760,7 +896,10 @@ function ItemDetail() {
                                 By:
                               </Typography>
                               <Typography variant="body2" fontWeight={600}>
-                                {checkout.profiles?.full_name || "Unknown User"}
+                                {/* Admin users see full names, regular users see anonymized */}
+                                {user?.role === "admin"
+                                  ? (checkout.profiles?.full_name || "Unknown User")
+                                  : "Another User"}
                               </Typography>
                             </Box>
                             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -776,10 +915,9 @@ function ItemDetail() {
                               <Typography variant="body2" color="text.secondary">
                                 Returned:
                               </Typography>
-                              <Typography variant="body2" fontWeight={500} color={checkout.return_date ? "success.main" : "error.main"}>
-                                {checkout.return_date
-                                  ? `${new Date(checkout.return_date).toLocaleDateString()} at ${new Date(checkout.return_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                                  : "Not returned"}
+                              <Typography variant="body2" fontWeight={500} color="success.main">
+                                {new Date(checkout.return_date).toLocaleDateString()} at{" "}
+                                {new Date(checkout.return_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </Typography>
                             </Box>
                           </Stack>
@@ -864,6 +1002,7 @@ function ItemDetail() {
                     </Button>
                   ) : item.status === "checked_out" ? (
                     // Show disabled button if someone else checked it out
+                    // Admin users see the name, regular users see "Another User" for privacy
                     <Button
                       variant="contained"
                       size="large"
@@ -880,7 +1019,9 @@ function ItemDetail() {
                         },
                       }}
                     >
-                      Checked Out by {activeCheckout?.profiles?.full_name || "Another User"}
+                      Checked Out by {user?.role === "admin"
+                        ? (activeCheckout?.profiles?.full_name || "Unknown User")
+                        : "Another User"}
                     </Button>
                   ) : (
                     // Show disabled button for broken/maintenance status
@@ -1006,10 +1147,12 @@ function ItemDetail() {
         onClose={handleCloseCheckoutDialog}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            p: 1,
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              p: 1,
+            }
           }
         }}
       >
@@ -1106,10 +1249,12 @@ function ItemDetail() {
         onClose={handleCloseReturnDialog}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            p: 1,
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              p: 1,
+            }
           }
         }}
       >
