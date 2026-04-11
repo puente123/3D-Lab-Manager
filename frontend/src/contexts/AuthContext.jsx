@@ -6,6 +6,10 @@ const AuthContext = createContext(null);
 
 export const useAuth = () => useContext(AuthContext);
 
+// Profile cache configuration
+const PROFILE_CACHE_KEY = "lab-manager-profile-cache";
+const PROFILE_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,6 +37,7 @@ export const AuthProvider = ({ children }) => {
         if (!key) return false;
         if (ref && key.includes(`sb-${ref}`)) return true;
         if (key.startsWith("supabase.auth.")) return true;
+        if (key === "lab-manager-profile-cache") return true; // Clear profile cache
         return false;
       };
 
@@ -52,26 +57,81 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Helper function to fetch user profile with role
-  const fetchUserProfile = useCallback(async (authUser, retryCount = 0) => {
+  // Profile cache helpers - cache for 1 hour to reduce database queries
+  const getCachedProfile = useCallback((userId) => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY);
+      if (!cached) return null;
+
+      const { profile, timestamp, userId: cachedUserId } = JSON.parse(cached);
+
+      // Check if cache is for the same user and not expired
+      if (cachedUserId !== userId) {
+        localStorage.removeItem(PROFILE_CACHE_KEY);
+        return null;
+      }
+
+      const isExpired = Date.now() - timestamp > PROFILE_CACHE_DURATION;
+      if (isExpired) {
+        localStorage.removeItem(PROFILE_CACHE_KEY);
+        return null;
+      }
+
+      console.log("[Auth] 📦 Using cached profile (age:", Math.round((Date.now() - timestamp) / 1000), "seconds)");
+      return profile;
+    } catch (error) {
+      console.error("[Auth] Failed to read profile cache:", error);
+      return null;
+    }
+  }, []);
+
+  const setCachedProfile = useCallback((userId, profile) => {
+    try {
+      const cacheData = {
+        userId,
+        profile,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(cacheData));
+      console.log("[Auth] 💾 Profile cached successfully");
+    } catch (error) {
+      console.error("[Auth] Failed to cache profile:", error);
+    }
+  }, []);
+
+  // Helper function to fetch user profile with role (with caching)
+  const fetchUserProfile = useCallback(async (authUser, retryCount = 0, skipCache = false) => {
     if (!authUser) {
       return null;
     }
 
     const userId = authUser.id;
+
+    // Check cache first (unless explicitly skipped)
+    if (!skipCache) {
+      const cached = getCachedProfile(userId);
+      if (cached) {
+        return {
+          ...authUser,
+          role: cached.role || "student",
+          full_name: cached.full_name,
+        };
+      }
+    }
+
     const maxRetries = 2;
     console.log(`[Auth] Fetching profile for user: ${userId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
     const startTime = Date.now();
 
     try {
-      // Increased timeout to 20s to handle slow Supabase connections on free tier
+      // Increased timeout to 30s for free tier reliability
       const { data: profile, error } = await withTimeout(
         supabase
           .from("profiles")
           .select("role, full_name")
           .eq("id", authUser.id)
           .single(),
-        20000,  // Increased from 10000ms to 20000ms (20 seconds) for free tier
+        30000,  // Increased from 20000ms to 30000ms (30 seconds) for better reliability
         "Get profile"
       );
 
@@ -99,7 +159,7 @@ export const AuthProvider = ({ children }) => {
           const delay = 500 * (retryCount + 1); // 500ms, 1s, 1.5s
           console.log(`[Auth] ⏳ Retrying in ${delay}ms (${retryCount + 1}/${maxRetries})...`);
           await new Promise(resolve => setTimeout(resolve, delay));
-          return fetchUserProfile(authUser, retryCount + 1);
+          return fetchUserProfile(authUser, retryCount + 1, skipCache);
         }
 
         // After all retries failed, use default role
@@ -121,6 +181,12 @@ export const AuthProvider = ({ children }) => {
         };
         return userData;
       }
+
+      // Cache the profile for future use
+      setCachedProfile(userId, {
+        role: profile.role,
+        full_name: profile.full_name,
+      });
 
       const userData = {
         ...authUser,
@@ -144,7 +210,7 @@ export const AuthProvider = ({ children }) => {
         const delay = 500 * (retryCount + 1);
         console.log(`[Auth] ⏳ Retrying after timeout in ${delay}ms (${retryCount + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchUserProfile(authUser, retryCount + 1);
+        return fetchUserProfile(authUser, retryCount + 1, skipCache);
       }
 
       const userData = {
@@ -155,7 +221,7 @@ export const AuthProvider = ({ children }) => {
       console.warn("[Auth] ⚠️ Using default role 'student' - exception after retries");
       return userData;
     }
-  }, [withTimeout]);
+  }, [withTimeout, getCachedProfile, setCachedProfile]);
 
   // Restore session on refresh
   useEffect(() => {
@@ -304,7 +370,7 @@ export const AuthProvider = ({ children }) => {
       initializingRef.current = false;
       initializedRef.current = false;
     };
-  }, [fetchUserProfile, clearSupabaseAuthStorage]);
+  }, [fetchUserProfile, clearSupabaseAuthStorage, getCachedProfile, setCachedProfile]);
 
   const login = async (email, password) => {
     try {
@@ -330,23 +396,44 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signup = async ({ firstName, lastName, email, password }) => {
-    // Create Auth Account
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return { success: false, error: error.message };
+    try {
+      // Create Auth Account
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) return { success: false, error: error.message };
 
-    const authUser = data?.user;
-    if (!authUser) return { success: false, error: "Signup failed." };
+      const authUser = data?.user;
+      if (!authUser) return { success: false, error: "Signup failed." };
 
-    // Insert user into profiles table
-    const fullName = `${firstName} ${lastName}`.trim();
-    await supabase.from("profiles").upsert({
-      id: authUser.id,
-      full_name: fullName,
-      email: email,
-      role: "student",
-    });
+      // Insert user into profiles table with error handling
+      const fullName = `${firstName} ${lastName}`.trim();
+      const { error: profileError } = await supabase.from("profiles").upsert({
+        id: authUser.id,
+        full_name: fullName,
+        email: email,
+        role: "student",
+      });
 
-    return { success: true };
+      if (profileError) {
+        console.error("[Auth] Profile creation failed:", profileError);
+        // Attempt to clean up auth user if profile creation fails
+        await supabase.auth.admin.deleteUser(authUser.id).catch(() => {
+          // Ignore cleanup errors - user can still log in with default profile
+        });
+        return {
+          success: false,
+          error: "Failed to create user profile. Please contact support or try again."
+        };
+      }
+
+      console.log("[Auth] ✅ Signup successful - user and profile created");
+      return { success: true };
+    } catch (err) {
+      console.error("[Auth] ❌ Signup exception:", err);
+      return {
+        success: false,
+        error: "An unexpected error occurred during signup. Please try again."
+      };
+    }
   };
 
   const logout = async () => {

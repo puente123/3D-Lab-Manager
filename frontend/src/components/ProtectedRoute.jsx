@@ -12,18 +12,28 @@ import { useState, useEffect } from 'react';
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [showSlowMessage, setShowSlowMessage] = useState(false);
 
   useEffect(() => {
     if (loading) {
+      // Show "taking longer than usual" message after 5 seconds
+      const slowTimer = setTimeout(() => {
+        setShowSlowMessage(true);
+      }, 5000);
+
       // Set a longer timeout (60s) since session restoration no longer has a timeout
       // Only show "Clear cache" option if genuinely stuck
-      const timer = setTimeout(() => {
+      const timeoutTimer = setTimeout(() => {
         setLoadingTimeout(true);
       }, 60000);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(slowTimer);
+        clearTimeout(timeoutTimer);
+      };
     } else {
       setLoadingTimeout(false);
+      setShowSlowMessage(false);
     }
   }, [loading]);
 
@@ -65,12 +75,19 @@ function ProtectedRoute({ children }) {
       <Box
         sx={{
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: '60vh'
+          minHeight: '60vh',
+          gap: 2,
         }}
       >
         <CircularProgress />
+        {showSlowMessage && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Taking longer than usual... Please wait.
+          </Typography>
+        )}
       </Box>
     );
   }

@@ -10,17 +10,27 @@ import { Box, CircularProgress, Typography, Button } from '@mui/material';
 const AdminProtectedRoute = ({ children, requiredRole = null }) => {
   const { user, loading, isAuthenticated } = useAuth();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [showSlowMessage, setShowSlowMessage] = useState(false);
 
   useEffect(() => {
     if (loading) {
-      // Set a timeout for 10 seconds
-      const timer = setTimeout(() => {
-        setLoadingTimeout(true);
-      }, 10000);
+      // Show "taking longer than usual" message after 5 seconds
+      const slowTimer = setTimeout(() => {
+        setShowSlowMessage(true);
+      }, 5000);
 
-      return () => clearTimeout(timer);
+      // Set a timeout for 60 seconds (matches ProtectedRoute timeout for consistency)
+      const timeoutTimer = setTimeout(() => {
+        setLoadingTimeout(true);
+      }, 60000);
+
+      return () => {
+        clearTimeout(slowTimer);
+        clearTimeout(timeoutTimer);
+      };
     } else {
       setLoadingTimeout(false);
+      setShowSlowMessage(false);
     }
   }, [loading]);
 
@@ -62,12 +72,19 @@ const AdminProtectedRoute = ({ children, requiredRole = null }) => {
       <Box
         sx={{
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
+          gap: 2,
         }}
       >
         <CircularProgress />
+        {showSlowMessage && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Taking longer than usual... Please wait.
+          </Typography>
+        )}
       </Box>
     );
   }

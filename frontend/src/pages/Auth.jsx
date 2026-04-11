@@ -34,7 +34,7 @@ function Auth() {
   const { login, signup, isAuthenticated, requestPasswordReset } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, _setShowConfirmPassword] = useState(false); // TODO: Add toggle button
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -375,6 +375,17 @@ function Auth() {
                   value={signupForm.confirmPassword}
                   onChange={handleSignupChange("confirmPassword")}
                   required
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
 
                 <Button type="submit" variant="contained" disabled={loading}>
