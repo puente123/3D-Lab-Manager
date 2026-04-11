@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -32,17 +33,21 @@ import {
 } from "@mui/material";
 import {
   Add as AddIcon,
+  Assignment as AssignmentIcon,
   CheckCircle as CheckCircleIcon,
   CloudUpload as CloudUploadIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
   RadioButtonUnchecked as NoModelIcon,
+  Search as SearchIcon,
   Shuffle as ShuffleIcon,
   ViewInAr as ViewInArIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material";
 import { getEquipment, updateEquipment } from "../../lib/supabaseItems";
 import { getLabs } from "../../lib/supabaseLabs";
 import { uploadItemModel } from "../../lib/supabaseStorage";
+import { ITEM_CATEGORIES } from "../../shared/types";
 
 const generateRandomCoords = () => ({
   x: parseFloat((Math.random() * 6 - 3).toFixed(2)), // -3 to +3 (smaller range, closer to center)
@@ -55,13 +60,15 @@ const generateRandomCoords = () => ({
 
 const emptyForm = () => {
   const coords = generateRandomCoords();
-  return { scale: 1, ...coords };
+  return { scale: 1, ...coords, labId: "" };
 };
 
 const ModelsAdmin = () => {
   const [items, setItems] = useState([]);
   const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [preSelectedItem, setPreSelectedItem] = useState(null);
@@ -74,6 +81,11 @@ const ModelsAdmin = () => {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToRemove, setItemToRemove] = useState(null);
+
+  const [labAssignDialogOpen, setLabAssignDialogOpen] = useState(false);
+  const [itemToAssignLab, setItemToAssignLab] = useState(null);
+  const [selectedLabId, setSelectedLabId] = useState("");
+  const [labAssignSaving, setLabAssignSaving] = useState(false);
 
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -117,11 +129,12 @@ const ModelsAdmin = () => {
         rotX: item.rotX ?? 0,
         rotY: item.rotY ?? 0,
         rotZ: item.rotZ ?? 0,
+        labId: item.labId || "",
       });
     } else {
       setPreSelectedItem(null);
       setSelectedItemId("");
-      setFormData({ scale: 1, ...coords });
+      setFormData({ scale: 1, ...coords, labId: "" });
     }
     setModelFile(null);
     setIsDragging(false);
@@ -135,6 +148,46 @@ const ModelsAdmin = () => {
     setSelectedItemId("");
     setModelFile(null);
     setFormErrors({});
+  };
+
+  /* ─── Lab Assignment Dialog ─── */
+  const handleOpenLabAssignDialog = (item) => {
+    setItemToAssignLab(item);
+    setSelectedLabId(item.labId || "");
+    setLabAssignDialogOpen(true);
+  };
+
+  const handleCloseLabAssignDialog = () => {
+    setLabAssignDialogOpen(false);
+    setItemToAssignLab(null);
+    setSelectedLabId("");
+  };
+
+  const handleSaveLabAssignment = async () => {
+    if (!itemToAssignLab) return;
+
+    setLabAssignSaving(true);
+    try {
+      await updateEquipment(itemToAssignLab.id, {
+        labId: selectedLabId || null,
+      });
+
+      // Update the item in state directly (optimistic update - faster than refetching)
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemToAssignLab.id
+            ? { ...item, labId: selectedLabId || null }
+            : item
+        )
+      );
+
+      showSnackbar("Lab assignment saved successfully", "success");
+      handleCloseLabAssignDialog();
+    } catch (err) {
+      showSnackbar(err.message || "Failed to save lab assignment", "error");
+    } finally {
+      setLabAssignSaving(false);
+    }
   };
 
   /* ─── Equipment selector in dialog ─── */
@@ -151,6 +204,7 @@ const ModelsAdmin = () => {
         rotX: item.rotX ?? 0,
         rotY: item.rotY ?? 0,
         rotZ: item.rotZ ?? 0,
+        labId: item.labId || "",
       });
     }
     setFormErrors((prev) => ({ ...prev, item: null }));
@@ -205,8 +259,8 @@ const ModelsAdmin = () => {
     const targetItem =
       preSelectedItem || items.find((i) => i.id === selectedItemId);
     if (!targetItem) errors.item = "Please select an equipment item";
-    if (!targetItem?.labId) {
-      errors.item = "Equipment must be assigned to a lab first. Please assign a lab in Items Admin.";
+    if (!formData.labId) {
+      errors.labId = "Lab assignment is required before uploading a 3D model";
     }
     if (!modelFile && !targetItem?.modelPath)
       errors.modelFile = "Please upload a .glb file";
@@ -234,6 +288,7 @@ const ModelsAdmin = () => {
         rotX: parseFloat(formData.rotX) || 0,
         rotY: parseFloat(formData.rotY) || 0,
         rotZ: parseFloat(formData.rotZ) || 0,
+        labId: formData.labId,
       });
 
       showSnackbar("3D model saved successfully", "success");
@@ -274,8 +329,6 @@ const ModelsAdmin = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const withModels = items.filter((i) => i.modelPath);
-  const withoutModels = items.filter((i) => !i.modelPath);
   const getLabName = (labId) =>
     labs.find((l) => l.id === labId)?.name || labId;
 
@@ -283,6 +336,26 @@ const ModelsAdmin = () => {
     if (item.x == null) return "—";
     return `(${item.x}, ${item.y}, ${item.z})`;
   };
+
+  // Filter items based on search and category
+  const filteredItems = items.filter((item) => {
+    const matchesSearch =
+      !search ||
+      item.name.toLowerCase().includes(search.toLowerCase()) ||
+      item.id.toLowerCase().includes(search.toLowerCase()) ||
+      item.category.toLowerCase().includes(search.toLowerCase()) ||
+      (item.labId &&
+        getLabName(item.labId).toLowerCase().includes(search.toLowerCase()));
+
+    const matchesCategory =
+      filterCategory === "all" || item.category === filterCategory;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const withModels = filteredItems.filter((i) => i.modelPath);
+  const withoutModels = filteredItems.filter((i) => !i.modelPath);
+  const unassignedItems = filteredItems.filter((i) => !i.labId);
 
   return (
     <Box>
@@ -313,6 +386,44 @@ const ModelsAdmin = () => {
           Upload 3D Model
         </Button>
       </Box>
+
+      {/* ── Warning: Items Without Lab Assignment ── */}
+      {!loading && unassignedItems.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 3 }} icon={<WarningIcon />}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 1,
+            }}
+          >
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                {unassignedItems.length} item
+                {unassignedItems.length !== 1 ? "s" : ""} without lab assignment
+              </Typography>
+              <Typography variant="body2">
+                Items must be assigned to a lab before uploading a 3D model. You
+                can assign labs in the table below or in Items Admin.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                setSearch("");
+                setFilterCategory("all");
+                document.querySelector("table")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              sx={{ whiteSpace: "nowrap" }}
+            >
+              View Unassigned Items
+            </Button>
+          </Box>
+        </Alert>
+      )}
 
       {/* ── Stats ── */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -347,6 +458,39 @@ const ModelsAdmin = () => {
         ))}
       </Grid>
 
+      {/* ── Search and Filters ── */}
+      <Card sx={{ mb: 2 }}>
+        <Box sx={{ p: 2, display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <TextField
+            placeholder="Search by item name, QR code, category, or lab..."
+            size="small"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <SearchIcon sx={{ mr: 1, color: "text.secondary" }} />
+              ),
+            }}
+            sx={{ flex: 1, minWidth: 250 }}
+          />
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={filterCategory}
+              label="Category"
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <MenuItem value="all">All Categories</MenuItem>
+              {ITEM_CATEGORIES.map((cat) => (
+                <MenuItem key={cat} value={cat}>
+                  {cat}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      </Card>
+
       {/* ── Table ── */}
       {loading ? (
         <LinearProgress />
@@ -370,7 +514,7 @@ const ModelsAdmin = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {items.length === 0 ? (
+                {filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                       <ViewInArIcon
@@ -382,8 +526,17 @@ const ModelsAdmin = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((item) => (
-                    <TableRow key={item.id} hover>
+                  filteredItems.map((item) => (
+                    <TableRow
+                      key={item.id}
+                      hover
+                      sx={{
+                        bgcolor: !item.labId ? "warning.lighter" : "inherit",
+                        "&:hover": {
+                          bgcolor: !item.labId ? "warning.light" : "action.hover",
+                        },
+                      }}
+                    >
                       <TableCell sx={{ fontWeight: 500 }}>
                         {item.name}
                       </TableCell>
@@ -402,7 +555,17 @@ const ModelsAdmin = () => {
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
-                        {item.labId ? getLabName(item.labId) : "—"}
+                        {item.labId ? (
+                          getLabName(item.labId)
+                        ) : (
+                          <Chip
+                            label="No Lab"
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            icon={<WarningIcon />}
+                          />
+                        )}
                       </TableCell>
                       <TableCell>
                         {item.modelPath ? (
@@ -429,33 +592,47 @@ const ModelsAdmin = () => {
                         {item.scale ?? "—"}
                       </TableCell>
                       <TableCell align="right">
-                        <Tooltip
-                          title={item.modelPath ? "Edit Model" : "Upload Model"}
-                        >
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleOpenDialog(item)}
-                            aria-label={`Upload model for ${item.name}`}
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          {!item.labId && (
+                            <Tooltip title="Assign Lab">
+                              <IconButton
+                                size="small"
+                                color="warning"
+                                onClick={() => handleOpenLabAssignDialog(item)}
+                                aria-label={`Assign lab for ${item.name}`}
+                              >
+                                <AssignmentIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip
+                            title={item.modelPath ? "Edit Model" : "Upload Model"}
                           >
-                            {item.modelPath ? <EditIcon /> : <ViewInArIcon />}
-                          </IconButton>
-                        </Tooltip>
-                        {item.modelPath && (
-                          <Tooltip title="Remove Model">
                             <IconButton
                               size="small"
-                              color="error"
-                              onClick={() => {
-                                setItemToRemove(item);
-                                setDeleteDialogOpen(true);
-                              }}
-                              aria-label={`Remove model for ${item.name}`}
+                              color="primary"
+                              onClick={() => handleOpenDialog(item)}
+                              aria-label={`Upload model for ${item.name}`}
                             >
-                              <DeleteIcon />
+                              {item.modelPath ? <EditIcon /> : <ViewInArIcon />}
                             </IconButton>
                           </Tooltip>
-                        )}
+                          {item.modelPath && (
+                            <Tooltip title="Remove Model">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => {
+                                  setItemToRemove(item);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                aria-label={`Remove model for ${item.name}`}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))
@@ -527,20 +704,44 @@ const ModelsAdmin = () => {
               </FormControl>
             )}
 
-            {/* ── Lab Assignment Display (Read-Only) ── */}
-            <TextField
-              label="Lab Assignment"
-              value={
-                (preSelectedItem || items.find((i) => i.id === selectedItemId))?.labId
-                  ? labs.find(
-                      (l) => l.id === (preSelectedItem || items.find((i) => i.id === selectedItemId))?.labId
-                    )?.name || "Unknown Lab"
-                  : "No Lab Assigned"
-              }
-              fullWidth
-              disabled
-              helperText="To change lab assignment, use Items Admin. ModelsAdmin is for 3D model management only."
-            />
+            {/* ── Lab Assignment (Editable) ── */}
+            <FormControl fullWidth required error={!!formErrors.labId}>
+              <InputLabel>Lab Assignment</InputLabel>
+              <Select
+                value={formData.labId}
+                label="Lab Assignment"
+                onChange={(e) => {
+                  setFormData({ ...formData, labId: e.target.value });
+                  setFormErrors((prev) => ({ ...prev, labId: null }));
+                }}
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {labs.map((lab) => (
+                  <MenuItem key={lab.id} value={lab.id}>
+                    {lab.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              {formErrors.labId && (
+                <Typography
+                  variant="caption"
+                  color="error"
+                  sx={{ mt: 0.5, ml: 1.75 }}
+                >
+                  {formErrors.labId}
+                </Typography>
+              )}
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 0.5, ml: 1.75 }}
+              >
+                Required before uploading a 3D model. Items without lab
+                assignment cannot have models.
+              </Typography>
+            </FormControl>
 
             {/* ── Drag & Drop Upload Zone ── */}
             <Box>
@@ -742,6 +943,55 @@ const ModelsAdmin = () => {
             variant="contained"
           >
             Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Lab Assignment Dialog ── */}
+      <Dialog
+        open={labAssignDialogOpen}
+        onClose={labAssignSaving ? undefined : handleCloseLabAssignDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Assign Lab</DialogTitle>
+        {labAssignSaving && <LinearProgress />}
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Assign a lab to <strong>{itemToAssignLab?.name}</strong>
+            </Typography>
+            <FormControl fullWidth disabled={labAssignSaving}>
+              <InputLabel>Lab</InputLabel>
+              <Select
+                value={selectedLabId}
+                label="Lab"
+                onChange={(e) => setSelectedLabId(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {labs.map((lab) => (
+                  <MenuItem key={lab.id} value={lab.id}>
+                    {lab.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseLabAssignDialog} disabled={labAssignSaving}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveLabAssignment}
+            variant="contained"
+            color="primary"
+            disabled={labAssignSaving}
+            startIcon={labAssignSaving ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {labAssignSaving ? "Saving..." : "Save"}
           </Button>
         </DialogActions>
       </Dialog>
