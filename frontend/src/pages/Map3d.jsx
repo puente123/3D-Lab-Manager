@@ -37,18 +37,24 @@ function Loader() {
   return (
     <Html
       center
-      style={{ fontFamily: "system-ui", fontSize: 14, pointerEvents: "none" }}
+      style={{ fontFamily: "system-ui", fontSize: 35, pointerEvents: "none" }}
     >
       {Math.round(progress)}%
     </Html>
   );
 }
 
-function LabModel({ path }) {
-  useGLTF.preload(path);
+function LabModel({ path, onLoaded }) {
+  //useGLTF.preload(path);
   const { scene } = useGLTF(path);
   const { gl, camera } = useThree();
   const group = useState(() => new THREE.Group())[0];
+
+  useEffect(() => {
+    if (scene) {
+      onLoaded?.();
+    }
+  }, [scene, onLoaded]);
 
   // Enable local clipping
   useEffect(() => {
@@ -178,6 +184,23 @@ function ItemModel({
   const clonedScene = useMemo(() => scene.clone(), [scene]);
   const scale = item.scale || 1;
 
+  const ringData = useMemo(() => {
+    const box = new THREE.Box3().setFromObject(clonedScene);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+
+    box.getSize(size);
+    box.getCenter(center);
+
+    const radius = Math.max(size.x, size.z) * 0.6;
+
+    return {
+      center,
+      radius,
+      y: box.min.y + 0.2, // slightly above the bottom
+    };
+  }, [clonedScene]);
+
   return (
     <group
       position={[item.x, item.y, item.z]}
@@ -191,11 +214,11 @@ function ItemModel({
       {/* Selection ring */}
       {isSelected && (
         <mesh
-          position={[0, 0.35, 0]}
+          position={[ringData.center.x, ringData.y, ringData.center.z]}
           rotation={[-Math.PI / 2, 0, 0]}
           raycast={() => null}
         >
-          <ringGeometry args={[0.7, 0.75, 32]} />
+          <ringGeometry args={[ringData.radius, ringData.radius + 0.04, 36]} />
           <meshBasicMaterial color="blue" />
         </mesh>
       )}
@@ -221,6 +244,7 @@ function ControlPanels({
   selectedItemId,
   canMoveItems,
   nudge,
+  nudgeScale,
   saving,
   dirty,
   saveSelectedPosition,
@@ -317,9 +341,7 @@ function ControlPanels({
           disabled={!selectedItem}
           onClick={() => {
             const qr =
-              selectedItem?.qrCode ||
-              selectedItem?.qr_code ||
-              selectedItem?.id;
+              selectedItem?.qrCode || selectedItem?.qr_code || selectedItem?.id;
             navigate(`/item/${qr}`, { state: { fromLabId: labId } });
           }}
         >
@@ -345,10 +367,7 @@ function ControlPanels({
             justifyContent="space-between"
             alignItems="center"
           >
-            <Typography
-              variant="subtitle2"
-              sx={{ color: "text.secondary" }}
-            >
+            <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
               Position controls
             </Typography>
 
@@ -417,11 +436,27 @@ function ControlPanels({
           </Stack>
           <Stack direction="row" spacing={1}>
             <Button
+              variant="outlined"
+              fullWidth
+              disabled={!selectedItemId || !canMoveItems}
+              onClick={() => nudgeScale(-1)}
+            >
+              Scale -
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled={!selectedItemId || !canMoveItems}
+              onClick={() => nudgeScale(1)}
+            >
+              Scale +
+            </Button>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button
               variant="contained"
               fullWidth
-              disabled={
-                !selectedItemId || !canMoveItems || saving || !dirty
-              }
+              disabled={!selectedItemId || !canMoveItems || saving || !dirty}
               onClick={saveSelectedPosition}
             >
               {saving ? "Saving..." : dirty ? "Save" : "Saved"}
@@ -440,7 +475,8 @@ function ControlPanels({
             <Typography variant="caption" sx={{ color: "text.secondary" }}>
               x={Number(selectedItem.x).toFixed(3)} y=
               {Number(selectedItem.y).toFixed(3)} z=
-              {Number(selectedItem.z).toFixed(3)}
+              {Number(selectedItem.z).toFixed(3)} scale=
+              {Number(selectedItem.scale ?? 1).toFixed(3)}
             </Typography>
           )}
         </Stack>
@@ -453,8 +489,10 @@ export default function Map3D() {
   const { labId } = useParams();
   const navigate = useNavigate();
   const orbitControlsRef = useRef();
+  const { progress, active } = useProgress();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [isLabModelLoaded, setIsLabModelLoaded] = useState(false);
   const [lab, setLab] = useState(null);
   const [items, setItems] = useState([]);
   const [originalItems, setOriginalItems] = useState([]);
@@ -508,6 +546,23 @@ export default function Map3D() {
     setDirty(true);
   };
 
+  const nudgeScale = (dir) => {
+    if (!selectedItemId) return;
+
+    setItems((prev) =>
+      prev.map((it) =>
+        getSelectionKey(it) === selectedItemId
+          ? {
+              ...it,
+              scale: Math.max(0.05, (Number(it.scale) || 1) + dir * step),
+            }
+          : it,
+      ),
+    );
+
+    setDirty(true);
+  };
+
   const resetSelectedToDb = () => {
     if (!selectedItemId) return;
 
@@ -520,7 +575,13 @@ export default function Map3D() {
         );
 
         return original
-          ? { ...it, x: original.x, y: original.y, z: original.z }
+          ? {
+              ...it,
+              x: original.x,
+              y: original.y,
+              z: original.z,
+              scale: original.scale ?? 1,
+            }
           : it;
       }),
     );
@@ -545,7 +606,12 @@ export default function Map3D() {
 
     try {
       setSaving(true);
-      await updateEquipmentPosition(it.id, { x: it.x, y: it.y, z: it.z });
+      await updateEquipmentPosition(it.id, {
+        x: it.x,
+        y: it.y,
+        z: it.z,
+        scale: it.scale ?? 1,
+      });
       console.log("Position saved successfully!");
       setDirty(false);
     } catch (e) {
@@ -561,6 +627,7 @@ export default function Map3D() {
       try {
         setLoading(true);
         setError(null);
+        setIsLabModelLoaded(false);
 
         // Fetch lab details
         const labData = await getLabById(labId);
@@ -568,7 +635,7 @@ export default function Map3D() {
         // Validate lab model path
         if (!labData.modelPath) {
           throw new Error(
-            `Lab "${labData.name}" has no 3D model. Please upload a model in Labs Admin.`
+            `Lab "${labData.name}" has no 3D model. Please upload a model in Labs Admin.`,
           );
         }
 
@@ -579,10 +646,10 @@ export default function Map3D() {
 
         if (!isValidUrl) {
           console.warn(
-            `[Map3D] ⚠️ Lab "${labData.name}" uses local file path: ${labData.modelPath}`
+            `[Map3D] ⚠️ Lab "${labData.name}" uses local file path: ${labData.modelPath}`,
           );
           console.warn(
-            `[Map3D] ⚠️ If the model fails to load, please re-upload via Labs Admin to use Supabase Storage`
+            `[Map3D] ⚠️ If the model fails to load, please re-upload via Labs Admin to use Supabase Storage`,
           );
         }
 
@@ -619,7 +686,9 @@ export default function Map3D() {
 
         // ⚠️ DON'T preload all models at once - causes memory crash with many large files
         // Instead, let Suspense lazy-load models on-demand when they're rendered
-        console.log(`[Map3D] Loaded ${itemsReady.length} items with 3D models (lazy loading enabled)`);
+        console.log(
+          `[Map3D] Loaded ${itemsReady.length} items with 3D models (lazy loading enabled)`,
+        );
       } catch (err) {
         console.error("Failed to load lab or items:", err);
         setError(err.message || "Failed to load lab. Please try again.");
@@ -706,7 +775,7 @@ export default function Map3D() {
         <Button
           variant="contained"
           color="secondary"
-          size="small"
+          size="large"
           component={RouterLink}
           to="/map3d"
         >
@@ -742,6 +811,7 @@ export default function Map3D() {
               selectedItemId={selectedItemId}
               canMoveItems={canMoveItems}
               nudge={nudge}
+              nudgeScale={nudgeScale}
               saving={saving}
               dirty={dirty}
               saveSelectedPosition={saveSelectedPosition}
@@ -846,24 +916,50 @@ export default function Map3D() {
             </Box>
           </SwipeableDrawer>
         )}
+        {isLabModelLoaded && active && progress < 100 && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 16,
+              right: 6,
+              zIndex: 20,
+              px: 1.5,
+              py: 0.75,
+              bgcolor: "rgba(249, 115, 22, 1)",
+              color: "white",
+              borderRadius: 1,
+              fontSize: 20,
+              pointerEvents: "none",
+            }}
+          >
+            Loading items... {Math.round(progress)}%
+          </Box>
+        )}
         <Canvas
           camera={{ position: [5, 5, 5], fov: 45 }}
           onPointerMissed={() => setSelectedItemId(null)}
         >
           <ambientLight />
           <directionalLight position={[5, 5, 5]} intensity={0.9} />
-          <Suspense fallback={<Loader />}>
-            <Bounds fit observe margin={1}>
-              {/* Lab Model - only render if valid path */}
-              {lab.modelPath &&
-                (lab.modelPath.startsWith("http://") ||
-                  lab.modelPath.startsWith("https://") ||
-                  lab.modelPath.startsWith("/models/")) && (
-                  <LabModel key={lab.modelPath} path={lab.modelPath} />
-                )}
 
-              {/* Item Models - each wrapped in Suspense for independent lazy loading */}
-              {items.map((item) => (
+          <Bounds fit observe margin={1}>
+            {/* LAB loads first with visible loader */}
+            {lab.modelPath &&
+              (lab.modelPath.startsWith("http://") ||
+                lab.modelPath.startsWith("https://") ||
+                lab.modelPath.startsWith("/models/")) && (
+                <Suspense fallback={<Loader />}>
+                  <LabModel
+                    key={lab.modelPath}
+                    path={lab.modelPath}
+                    onLoaded={() => setIsLabModelLoaded(true)}
+                  />
+                </Suspense>
+              )}
+
+            {/* ITEMS only start after lab is loaded */}
+            {isLabModelLoaded &&
+              items.map((item) => (
                 <Suspense key={item.id} fallback={null}>
                   <ItemModel
                     item={item}
@@ -874,9 +970,9 @@ export default function Map3D() {
                   />
                 </Suspense>
               ))}
-            </Bounds>
-            <Environment preset="city" />
-          </Suspense>
+          </Bounds>
+
+          <Environment preset="city" />
 
           <OrbitControls
             ref={orbitControlsRef}
