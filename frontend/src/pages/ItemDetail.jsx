@@ -40,7 +40,12 @@ import { QRCodeCanvas } from "qrcode.react";
 
 // API and components
 import { getEquipmentById } from "../lib/supabaseItems.js";
-import { checkoutEquipment, returnEquipment, getActiveCheckout, getCheckoutHistory } from "../lib/supabaseCheckout.js";
+import {
+  checkoutEquipment,
+  returnEquipment,
+  getActiveCheckout,
+  getCheckoutHistory,
+} from "../lib/supabaseCheckout.js";
 import { useAuth } from "../contexts/AuthContext";
 import IssueModal from "../components/IssueModal";
 import EmptyState from "../components/EmptyState";
@@ -124,15 +129,18 @@ function ItemDetail() {
   };
 
   const handleOpen3D = () => {
-    navigate(`/map3d?item=${id}`);
+    const targetLabId = item?.lab_id || item?.labId;
 
-    if (window.flyToItem && typeof window.flyToItem === "function") {
-      try {
-        window.flyToItem(id);
-      } catch (error) {
-        console.log("3D integration not available:", error);
-      }
+    if (!targetLabId) {
+      setToast({
+        open: true,
+        message: "This item is not assigned to a lab yet.",
+        severity: "warning",
+      });
+      return;
     }
+
+    navigate(`/map3d/${targetLabId}?item=${item.id}`);
   };
 
   // Modal handlers
@@ -197,7 +205,8 @@ function ItemDetail() {
       } else {
         setToast({
           open: true,
-          message: result.error || "Failed to check out item. Please try again.",
+          message:
+            result.error || "Failed to check out item. Please try again.",
           severity: "error",
         });
       }
@@ -346,25 +355,25 @@ function ItemDetail() {
         return {
           color: "success",
           label: "Available",
-          icon: <CheckCircleIcon sx={{ fontSize: 18 }} />
+          icon: <CheckCircleIcon sx={{ fontSize: 18 }} />,
         };
       case "checked_out":
         return {
           color: "warning",
           label: "Checked Out",
-          icon: null
+          icon: null,
         };
       case "broken":
         return {
           color: "error",
           label: "Broken",
-          icon: null
+          icon: null,
         };
       default:
         return {
           color: "default",
           label: status || "Unknown",
-          icon: null
+          icon: null,
         };
     }
   };
@@ -381,10 +390,28 @@ function ItemDetail() {
             </Grid>
             <Grid item xs={7}>
               <Box sx={{ p: 4 }}>
-                <Skeleton variant="text" width="80%" height={48} sx={{ mb: 2 }} />
-                <Skeleton variant="rectangular" width={120} height={32} sx={{ mb: 4, borderRadius: 10 }} />
-                <Skeleton variant="rectangular" height={200} sx={{ mb: 3, borderRadius: 2 }} />
-                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+                <Skeleton
+                  variant="text"
+                  width="80%"
+                  height={48}
+                  sx={{ mb: 2 }}
+                />
+                <Skeleton
+                  variant="rectangular"
+                  width={120}
+                  height={32}
+                  sx={{ mb: 4, borderRadius: 10 }}
+                />
+                <Skeleton
+                  variant="rectangular"
+                  height={200}
+                  sx={{ mb: 3, borderRadius: 2 }}
+                />
+                <Skeleton
+                  variant="rectangular"
+                  height={56}
+                  sx={{ borderRadius: 1 }}
+                />
               </Box>
             </Grid>
           </Grid>
@@ -436,7 +463,7 @@ function ItemDetail() {
               fontWeight: 500,
               "&:hover": {
                 textDecoration: "underline",
-                color: "primary.dark"
+                color: "primary.dark",
               },
             }}
           >
@@ -459,8 +486,8 @@ function ItemDetail() {
           overflow: "hidden",
           transition: "box-shadow 0.3s ease",
           "&:hover": {
-            boxShadow: "0 8px 24px rgba(0,0,0,0.12)"
-          }
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          },
         }}
       >
         <Grid
@@ -506,8 +533,8 @@ function ItemDetail() {
                     objectFit: "contain",
                     transition: "transform 0.3s ease",
                     "&:hover": {
-                      transform: "scale(1.02)"
-                    }
+                      transform: "scale(1.02)",
+                    },
                   }}
                   onError={(e) => {
                     e.target.style.display = "none";
@@ -577,10 +604,14 @@ function ItemDetail() {
                     height: 36,
                     px: 1,
                     backdropFilter: "blur(10px)",
-                    backgroundColor: statusConfig.color === "success" ? "rgba(46, 125, 50, 0.95)" :
-                                     statusConfig.color === "warning" ? "rgba(237, 108, 2, 0.95)" :
-                                     statusConfig.color === "error" ? "rgba(211, 47, 47, 0.95)" :
-                                     "rgba(158, 158, 158, 0.95)",
+                    backgroundColor:
+                      statusConfig.color === "success"
+                        ? "rgba(46, 125, 50, 0.95)"
+                        : statusConfig.color === "warning"
+                          ? "rgba(237, 108, 2, 0.95)"
+                          : statusConfig.color === "error"
+                            ? "rgba(211, 47, 47, 0.95)"
+                            : "rgba(158, 158, 158, 0.95)",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                   }}
                 />
@@ -650,8 +681,8 @@ function ItemDetail() {
                       backgroundColor: "primary.main",
                       color: "white",
                       "& .MuiChip-icon": {
-                        color: "white"
-                      }
+                        color: "white",
+                      },
                     }}
                   />
                   <Chip
@@ -683,7 +714,7 @@ function ItemDetail() {
                     "&:hover": {
                       borderColor: "primary.main",
                       backgroundColor: "primary.50",
-                    }
+                    },
                   }}
                 >
                   <Stack direction="row" spacing={2} alignItems="flex-start">
@@ -697,7 +728,9 @@ function ItemDetail() {
                         justifyContent: "center",
                       }}
                     >
-                      <LocationIcon sx={{ fontSize: 28, color: "primary.main" }} />
+                      <LocationIcon
+                        sx={{ fontSize: 28, color: "primary.main" }}
+                      />
                     </Box>
                     <Box sx={{ flex: 1 }}>
                       <Typography
@@ -715,7 +748,7 @@ function ItemDetail() {
                         sx={{
                           fontWeight: 600,
                           color: "text.primary",
-                          fontSize: "1.125rem"
+                          fontSize: "1.125rem",
                         }}
                       >
                         {item.locationPath}
@@ -736,9 +769,19 @@ function ItemDetail() {
                     textAlign: "center",
                   }}
                 >
-                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mb: 2 }}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    sx={{ mb: 2 }}
+                  >
                     <QrCodeIcon sx={{ fontSize: 24, color: "primary.main" }} />
-                    <Typography variant="h6" fontWeight={700} color="primary.dark">
+                    <Typography
+                      variant="h6"
+                      fontWeight={700}
+                      color="primary.dark"
+                    >
                       Item QR Code
                     </Typography>
                   </Stack>
@@ -775,7 +818,12 @@ function ItemDetail() {
                   >
                     {item.id}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ mb: 2 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    fontWeight={500}
+                    sx={{ mb: 2 }}
+                  >
                     Scan to access this item's checkout page
                   </Typography>
 
@@ -827,7 +875,12 @@ function ItemDetail() {
                     borderRadius: 2,
                   }}
                 >
-                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+                  <Stack
+                    direction="row"
+                    spacing={1.5}
+                    alignItems="center"
+                    sx={{ mb: 2 }}
+                  >
                     <HistoryIcon sx={{ fontSize: 24, color: "primary.main" }} />
                     <Typography variant="h6" fontWeight={600}>
                       Checkout History
@@ -846,30 +899,56 @@ function ItemDetail() {
                         borderColor: "warning.200",
                       }}
                     >
-                      <Typography variant="body2" color="warning.dark" fontWeight={700} sx={{ mb: 1 }}>
+                      <Typography
+                        variant="body2"
+                        color="warning.dark"
+                        fontWeight={700}
+                        sx={{ mb: 1 }}
+                      >
                         Currently Checked Out
                       </Typography>
                       <Stack spacing={0.5}>
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
                           <Typography variant="body2" color="text.secondary">
                             By:
                           </Typography>
                           <Typography variant="body2" fontWeight={600}>
                             {/* Admin users see full names, regular users see anonymized for privacy */}
                             {user?.role === "admin"
-                              ? (activeCheckout.profiles?.full_name || "Unknown User")
-                              : (activeCheckout.user_id === user?.id
-                                  ? (activeCheckout.profiles?.full_name || "You")
-                                  : "Another User")}
+                              ? activeCheckout.profiles?.full_name ||
+                                "Unknown User"
+                              : activeCheckout.user_id === user?.id
+                                ? activeCheckout.profiles?.full_name || "You"
+                                : "Another User"}
                           </Typography>
                         </Box>
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
                           <Typography variant="body2" color="text.secondary">
                             Checked out:
                           </Typography>
                           <Typography variant="body2" fontWeight={500}>
-                            {new Date(activeCheckout.checkout_date).toLocaleDateString()} at{" "}
-                            {new Date(activeCheckout.checkout_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(
+                              activeCheckout.checkout_date,
+                            ).toLocaleDateString()}{" "}
+                            at{" "}
+                            {new Date(
+                              activeCheckout.checkout_date,
+                            ).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </Typography>
                         </Box>
                       </Stack>
@@ -891,33 +970,81 @@ function ItemDetail() {
                           }}
                         >
                           <Stack spacing={0.5}>
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <Typography variant="body2" color="text.secondary">
+                            <Box
+                              sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                              }}
+                            >
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
                                 By:
                               </Typography>
                               <Typography variant="body2" fontWeight={600}>
                                 {/* Admin users see full names, regular users see anonymized */}
                                 {user?.role === "admin"
-                                  ? (checkout.profiles?.full_name || "Unknown User")
+                                  ? checkout.profiles?.full_name ||
+                                    "Unknown User"
                                   : "Another User"}
                               </Typography>
                             </Box>
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <Typography variant="body2" color="text.secondary">
+                            <Box
+                              sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                              }}
+                            >
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
                                 Checked out:
                               </Typography>
                               <Typography variant="body2" fontWeight={500}>
-                                {new Date(checkout.checkout_date).toLocaleDateString()} at{" "}
-                                {new Date(checkout.checkout_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(
+                                  checkout.checkout_date,
+                                ).toLocaleDateString()}{" "}
+                                at{" "}
+                                {new Date(
+                                  checkout.checkout_date,
+                                ).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                               </Typography>
                             </Box>
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <Typography variant="body2" color="text.secondary">
+                            <Box
+                              sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                              }}
+                            >
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
                                 Returned:
                               </Typography>
-                              <Typography variant="body2" fontWeight={500} color="success.main">
-                                {new Date(checkout.return_date).toLocaleDateString()} at{" "}
-                                {new Date(checkout.return_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              <Typography
+                                variant="body2"
+                                fontWeight={500}
+                                color="success.main"
+                              >
+                                {new Date(
+                                  checkout.return_date,
+                                ).toLocaleDateString()}{" "}
+                                at{" "}
+                                {new Date(
+                                  checkout.return_date,
+                                ).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                               </Typography>
                             </Box>
                           </Stack>
@@ -926,7 +1053,14 @@ function ItemDetail() {
                     </Stack>
                   ) : (
                     <Box sx={{ textAlign: "center", py: 2 }}>
-                      <HistoryIcon sx={{ fontSize: 40, color: "text.disabled", mb: 1, opacity: 0.5 }} />
+                      <HistoryIcon
+                        sx={{
+                          fontSize: 40,
+                          color: "text.disabled",
+                          mb: 1,
+                          opacity: 0.5,
+                        }}
+                      />
                       <Typography variant="body2" color="text.secondary">
                         No checkout history available
                       </Typography>
@@ -974,12 +1108,15 @@ function ItemDetail() {
                     >
                       Check Out This Item
                     </Button>
-                  ) : item.status === "checked_out" && activeCheckout?.user_id === user?.id ? (
+                  ) : item.status === "checked_out" &&
+                    activeCheckout?.user_id === user?.id ? (
                     // Show Return button if current user checked it out
                     <Button
                       variant="contained"
                       size="large"
-                      startIcon={<CheckoutIcon sx={{ transform: "rotate(180deg)" }} />}
+                      startIcon={
+                        <CheckoutIcon sx={{ transform: "rotate(180deg)" }} />
+                      }
                       onClick={handleOpenReturnDialog}
                       fullWidth
                       sx={{
@@ -1019,8 +1156,9 @@ function ItemDetail() {
                         },
                       }}
                     >
-                      Checked Out by {user?.role === "admin"
-                        ? (activeCheckout?.profiles?.full_name || "Unknown User")
+                      Checked Out by{" "}
+                      {user?.role === "admin"
+                        ? activeCheckout?.profiles?.full_name || "Unknown User"
                         : "Another User"}
                     </Button>
                   ) : (
@@ -1152,15 +1290,17 @@ function ItemDetail() {
             sx: {
               borderRadius: 3,
               p: 1,
-            }
-          }
+            },
+          },
         }}
       >
         <DialogTitle sx={{ fontSize: "1.5rem", fontWeight: 700, pb: 1 }}>
           Confirm Check Out
         </DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ mb: 2, fontSize: "1rem", color: "text.primary" }}>
+          <DialogContentText
+            sx={{ mb: 2, fontSize: "1rem", color: "text.primary" }}
+          >
             Are you sure you want to check out this item?
           </DialogContentText>
 
@@ -1176,7 +1316,11 @@ function ItemDetail() {
           >
             <Stack spacing={1.5}>
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={600}
+                >
                   ITEM NAME
                 </Typography>
                 <Typography variant="body1" fontWeight={600}>
@@ -1185,21 +1329,31 @@ function ItemDetail() {
               </Box>
 
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={600}
+                >
                   ITEM ID
                 </Typography>
-                <Typography variant="body1" fontFamily="monospace" fontWeight={600}>
+                <Typography
+                  variant="body1"
+                  fontFamily="monospace"
+                  fontWeight={600}
+                >
                   {item.id}
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={600}
+                >
                   LOCATION
                 </Typography>
-                <Typography variant="body1">
-                  {item.locationPath}
-                </Typography>
+                <Typography variant="body1">{item.locationPath}</Typography>
               </Box>
             </Stack>
           </Paper>
@@ -1227,7 +1381,13 @@ function ItemDetail() {
             color="success"
             disabled={checkoutLoading}
             size="large"
-            startIcon={checkoutLoading ? <CircularProgress size={20} color="inherit" /> : <CheckoutIcon />}
+            startIcon={
+              checkoutLoading ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <CheckoutIcon />
+              )
+            }
             sx={{
               fontWeight: 700,
               textTransform: "none",
@@ -1254,15 +1414,17 @@ function ItemDetail() {
             sx: {
               borderRadius: 3,
               p: 1,
-            }
-          }
+            },
+          },
         }}
       >
         <DialogTitle sx={{ fontSize: "1.5rem", fontWeight: 700, pb: 1 }}>
           Confirm Return
         </DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ mb: 2, fontSize: "1rem", color: "text.primary" }}>
+          <DialogContentText
+            sx={{ mb: 2, fontSize: "1rem", color: "text.primary" }}
+          >
             Are you sure you want to return this item?
           </DialogContentText>
 
@@ -1278,7 +1440,11 @@ function ItemDetail() {
           >
             <Stack spacing={1.5}>
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={600}
+                >
                   ITEM NAME
                 </Typography>
                 <Typography variant="body1" fontWeight={600}>
@@ -1287,31 +1453,50 @@ function ItemDetail() {
               </Box>
 
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={600}
+                >
                   ITEM ID
                 </Typography>
-                <Typography variant="body1" fontFamily="monospace" fontWeight={600}>
+                <Typography
+                  variant="body1"
+                  fontFamily="monospace"
+                  fontWeight={600}
+                >
                   {item.id}
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={600}
+                >
                   LOCATION
                 </Typography>
-                <Typography variant="body1">
-                  {item.locationPath}
-                </Typography>
+                <Typography variant="body1">{item.locationPath}</Typography>
               </Box>
 
               {activeCheckout && (
                 <Box>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    fontWeight={600}
+                  >
                     CHECKED OUT ON
                   </Typography>
                   <Typography variant="body1">
-                    {new Date(activeCheckout.checkout_date).toLocaleDateString()} at{" "}
-                    {new Date(activeCheckout.checkout_date).toLocaleTimeString()}
+                    {new Date(
+                      activeCheckout.checkout_date,
+                    ).toLocaleDateString()}{" "}
+                    at{" "}
+                    {new Date(
+                      activeCheckout.checkout_date,
+                    ).toLocaleTimeString()}
                   </Typography>
                 </Box>
               )}
@@ -1341,7 +1526,13 @@ function ItemDetail() {
             color="primary"
             disabled={returnLoading}
             size="large"
-            startIcon={returnLoading ? <CircularProgress size={20} color="inherit" /> : <CheckoutIcon sx={{ transform: "rotate(180deg)" }} />}
+            startIcon={
+              returnLoading ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <CheckoutIcon sx={{ transform: "rotate(180deg)" }} />
+              )
+            }
             sx={{
               fontWeight: 700,
               textTransform: "none",

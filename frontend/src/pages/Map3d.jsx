@@ -1,6 +1,11 @@
 import { Suspense, useMemo, useEffect, useState, useRef } from "react";
 import * as THREE from "three";
-import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import {
+  Link as RouterLink,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -489,6 +494,8 @@ export default function Map3D() {
   const { labId } = useParams();
   const navigate = useNavigate();
   const orbitControlsRef = useRef();
+  const [searchParams] = useSearchParams();
+  const itemQuery = searchParams.get("item");
   const { progress, active } = useProgress();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -699,6 +706,21 @@ export default function Map3D() {
 
     fetchData();
   }, [labId]);
+
+  useEffect(() => {
+    if (!itemQuery || items.length === 0) return;
+
+    const matched = items.find(
+      (it) =>
+        String(it.id) === String(itemQuery) ||
+        String(it.qrCode) === String(itemQuery) ||
+        String(it.qr_code) === String(itemQuery),
+    );
+
+    if (matched) {
+      setSelectedItemId(getSelectionKey(matched));
+    }
+  }, [itemQuery, items]);
 
   if (loading) {
     return (
