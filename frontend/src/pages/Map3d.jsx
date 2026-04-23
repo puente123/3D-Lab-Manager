@@ -1,4 +1,11 @@
-import { Suspense, useMemo, useEffect, useState, useRef } from "react";
+import {
+  Suspense,
+  useMemo,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import * as THREE from "three";
 import {
   Link as RouterLink,
@@ -14,6 +21,7 @@ import {
   Html,
   useProgress,
   Environment,
+  useBounds,
 } from "@react-three/drei";
 import {
   Box,
@@ -53,13 +61,17 @@ function LabModel({ path, onLoaded }) {
   //useGLTF.preload(path);
   const { scene } = useGLTF(path);
   const { gl, camera } = useThree();
+  const boundsApi = useBounds();
   const group = useState(() => new THREE.Group())[0];
+  const hasFittedRef = useRef(false);
 
   useEffect(() => {
-    if (scene) {
-      onLoaded?.();
-    }
-  }, [scene, onLoaded]);
+    if (!scene || hasFittedRef.current) return;
+
+    boundsApi.refresh(scene).clip().fit();
+    hasFittedRef.current = true;
+    onLoaded?.();
+  }, [scene, boundsApi, onLoaded]);
 
   // Enable local clipping
   useEffect(() => {
@@ -91,6 +103,7 @@ function LabModel({ path, onLoaded }) {
 
   // Apply backface culling
   useEffect(() => {
+    group.clear();
     group.add(scene);
     scene.traverse((child) => {
       if (!child.isMesh) return;
@@ -120,6 +133,32 @@ function LabModel({ path, onLoaded }) {
   }, [scene, ceilingPlane, group]);
 
   return <primitive object={group} />;
+}
+
+function ItemLoadingOverlay({ isLabModelLoaded }) {
+  const { progress, active } = useProgress();
+
+  if (!isLabModelLoaded || !active || progress >= 100) return null;
+
+  return (
+    <Box
+      sx={{
+        position: "absolute",
+        top: 16,
+        right: 6,
+        zIndex: 20,
+        px: 1.5,
+        py: 0.75,
+        bgcolor: "rgba(249, 115, 22, 1)",
+        color: "white",
+        borderRadius: 1,
+        fontSize: 20,
+        pointerEvents: "none",
+      }}
+    >
+      Loading items... {Math.round(progress)}%
+    </Box>
+  );
 }
 
 // Fallback component for failed models
@@ -496,7 +535,6 @@ export default function Map3D() {
   const orbitControlsRef = useRef();
   const [searchParams] = useSearchParams();
   const itemQuery = searchParams.get("item");
-  const { progress, active } = useProgress();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [isLabModelLoaded, setIsLabModelLoaded] = useState(false);
@@ -515,6 +553,10 @@ export default function Map3D() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const handleLabLoaded = useCallback(() => {
+    setIsLabModelLoaded(true);
+  }, []);
 
   const getSelectionKey = (item) => item?.qrCode || item?.qr_code || item?.id;
 
@@ -938,25 +980,7 @@ export default function Map3D() {
             </Box>
           </SwipeableDrawer>
         )}
-        {isLabModelLoaded && active && progress < 100 && (
-          <Box
-            sx={{
-              position: "absolute",
-              top: 16,
-              right: 6,
-              zIndex: 20,
-              px: 1.5,
-              py: 0.75,
-              bgcolor: "rgba(249, 115, 22, 1)",
-              color: "white",
-              borderRadius: 1,
-              fontSize: 20,
-              pointerEvents: "none",
-            }}
-          >
-            Loading items... {Math.round(progress)}%
-          </Box>
-        )}
+        <ItemLoadingOverlay isLabModelLoaded={isLabModelLoaded} />
         <Canvas
           camera={{ position: [5, 5, 5], fov: 45 }}
           onPointerMissed={() => setSelectedItemId(null)}
@@ -964,7 +988,7 @@ export default function Map3D() {
           <ambientLight />
           <directionalLight position={[5, 5, 5]} intensity={0.9} />
 
-          <Bounds fit observe margin={1}>
+          <Bounds margin={1}>
             {/* LAB loads first with visible loader */}
             {lab.modelPath &&
               (lab.modelPath.startsWith("http://") ||
@@ -974,7 +998,7 @@ export default function Map3D() {
                   <LabModel
                     key={lab.modelPath}
                     path={lab.modelPath}
-                    onLoaded={() => setIsLabModelLoaded(true)}
+                    onLoaded={handleLabLoaded}
                   />
                 </Suspense>
               )}
