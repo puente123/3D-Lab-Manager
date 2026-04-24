@@ -5,9 +5,9 @@ import { Box, CircularProgress, Typography, Button } from '@mui/material';
 
 /**
  * Protected route wrapper for admin area
- * Requires user to be authenticated and have appropriate role
+ * Requires user to be authenticated and have admin role
  */
-const AdminProtectedRoute = ({ children, requiredRole = null }) => {
+const AdminProtectedRoute = ({ children, requiredRole = 'admin' }) => {
   const { user, loading, isAuthenticated } = useAuth();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [showSlowMessage, setShowSlowMessage] = useState(false);
@@ -89,12 +89,17 @@ const AdminProtectedRoute = ({ children, requiredRole = null }) => {
     );
   }
 
+  // Not authenticated - redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Check if specific role is required
-  if (requiredRole && user?.role !== requiredRole && user?.role !== 'admin') {
+  // Check if user has admin role or required role
+  const userRole = user?.role || 'student';
+  const hasAccess = userRole === 'admin' || (requiredRole && userRole === requiredRole);
+
+  if (!hasAccess) {
+    console.warn(`Access denied. User role: ${userRole}, Required: ${requiredRole || 'admin'}`);
     return <Navigate to="/" replace />;
   }
 
