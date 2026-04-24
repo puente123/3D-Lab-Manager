@@ -47,6 +47,13 @@ export const ITEM_CATEGORIES = [
   'Material',
   'Electronics',
   'Safety',
+  'Computer',
+  'VR Headset',
+  'Tablet',
+  'Phone',
+  'Webcam',
+  'Network',
+  'Lab Equipment',
   'Other'
 ];
 
@@ -57,8 +64,12 @@ export const ITEM_STATUSES = [
 ];
 
 export const ISSUE_TYPES = [
-  'Clogged',
-  'Jammed',
   'Broken',
+  'Missing',
+  'Damaged',
+  'Malfunctioning',
+  'Needs Calibration',
+  'Needs Cleaning',
+  'Low Quality',
   'Other'
 ];

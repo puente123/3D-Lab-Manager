@@ -15,23 +15,36 @@ import {
   Link,
   Tabs,
   Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
 } from "@mui/material";
 import {
   Visibility,
   VisibilityOff,
   Login as LoginIcon,
   PersonAdd as PersonAddIcon,
+  Email as EmailIcon,
 } from "@mui/icons-material";
 
 function Auth() {
   const navigate = useNavigate();
-  const { login, signup, isAuthenticated } = useAuth();
+  const { login, signup, isAuthenticated, requestPasswordReset } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Forgot password state
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -67,6 +80,55 @@ function Auth() {
   };
 
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const handleOpenForgotPassword = () => {
+    setForgotPasswordOpen(true);
+    setResetEmail(loginForm.email); // Pre-fill with login email if available
+    setResetError("");
+    setResetSuccess("");
+  };
+
+  const handleCloseForgotPassword = () => {
+    setForgotPasswordOpen(false);
+    setResetEmail("");
+    setResetError("");
+    setResetSuccess("");
+  };
+
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccess("");
+    setResetLoading(true);
+
+    if (!resetEmail) {
+      setResetError("Please enter your email address");
+      setResetLoading(false);
+      return;
+    }
+
+    if (!isValidEmail(resetEmail)) {
+      setResetError("Please enter a valid email address");
+      setResetLoading(false);
+      return;
+    }
+
+    const result = await requestPasswordReset(resetEmail);
+
+    if (result.success) {
+      setResetSuccess(
+        "Password reset link sent! Please check your email inbox (and spam folder)."
+      );
+      // Close dialog after 3 seconds
+      setTimeout(() => {
+        handleCloseForgotPassword();
+      }, 3000);
+    } else {
+      setResetError(result.error || "Failed to send reset email");
+    }
+
+    setResetLoading(false);
+  };
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -241,6 +303,25 @@ function Auth() {
                     ),
                   }}
                 />
+
+                <Box sx={{ textAlign: "right", mt: -0.5 }}>
+                  <Link
+                    component="button"
+                    type="button"
+                    variant="body2"
+                    onClick={handleOpenForgotPassword}
+                    sx={{
+                      cursor: "pointer",
+                      textDecoration: "none",
+                      "&:hover": {
+                        textDecoration: "underline",
+                      },
+                    }}
+                  >
+                    Forgot Password?
+                  </Link>
+                </Box>
+
                 <Button type="submit" variant="contained" disabled={loading}>
                   {loading ? "Logging in..." : "Login"}
                 </Button>
@@ -294,6 +375,17 @@ function Auth() {
                   value={signupForm.confirmPassword}
                   onChange={handleSignupChange("confirmPassword")}
                   required
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
 
                 <Button type="submit" variant="contained" disabled={loading}>
@@ -304,6 +396,91 @@ function Auth() {
           </Box>
         </CardContent>
       </Card>
+
+      {/* Forgot Password Dialog */}
+      <Dialog
+        open={forgotPasswordOpen}
+        onClose={handleCloseForgotPassword}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              p: 1,
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontSize: "1.5rem", fontWeight: 700, pb: 1 }}>
+          Reset Password
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 3 }}>
+            Enter your email address and we'll send you a link to reset your
+            password.
+          </DialogContentText>
+
+          {resetError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {resetError}
+            </Alert>
+          )}
+
+          {resetSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {resetSuccess}
+            </Alert>
+          )}
+
+          <form onSubmit={handleResetPasswordSubmit}>
+            <TextField
+              autoFocus
+              label="Email Address"
+              type="email"
+              fullWidth
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              disabled={resetLoading || !!resetSuccess}
+              required
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <EmailIcon color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+            />
+          </form>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 1 }}>
+          <Button
+            onClick={handleCloseForgotPassword}
+            disabled={resetLoading}
+            size="large"
+            sx={{
+              fontWeight: 600,
+              textTransform: "none",
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleResetPasswordSubmit}
+            variant="contained"
+            disabled={resetLoading || !!resetSuccess}
+            size="large"
+            sx={{
+              fontWeight: 700,
+              textTransform: "none",
+              px: 3,
+            }}
+          >
+            {resetLoading ? "Sending..." : "Send Reset Link"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

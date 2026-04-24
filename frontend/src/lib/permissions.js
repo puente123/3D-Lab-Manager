@@ -7,18 +7,18 @@
  * @type {Record<Role, string[]>}
  */
 export const PERMISSIONS = {
-  admin: ['*'],
+  admin: ["*"], // Admins have all permissions including items.position3d
   labManager: [
-    'items.read',
-    'items.write',
-    'issues.read',
-    'issues.write',
-    'reports.read',
-    'labs.read',
-    'labs.write',
+    "items.read",
+    "items.write",
+    "issues.read",
+    "issues.write",
+    "reports.read",
+    "labs.read",
+    "labs.write",
   ],
-  staff: ['items.read', 'items.write', 'issues.read', 'issues.write'],
-  viewer: ['items.read', 'issues.read', 'issues.create'],
+  staff: ["items.read", "items.write", "issues.read", "issues.write"],
+  viewer: ["items.read", "issues.read", "issues.create"],
 };
 
 /**
@@ -29,7 +29,7 @@ export const PERMISSIONS = {
  */
 export const can = (role, perm) => {
   if (!role) return false;
-  if (role === 'admin') return true;
+  if (role === "admin") return true;
   return PERMISSIONS[role]?.includes(perm) || false;
 };
 
@@ -40,10 +40,10 @@ export const can = (role, perm) => {
  */
 export const getRoleDisplayName = (role) => {
   const names = {
-    admin: 'Administrator',
-    labManager: 'Lab Manager',
-    staff: 'Staff',
-    viewer: 'Viewer',
+    admin: "Administrator",
+    labManager: "Lab Manager",
+    staff: "Staff",
+    viewer: "Viewer",
   };
   return names[role] || role;
 };
@@ -52,4 +52,4 @@ export const getRoleDisplayName = (role) => {
  * Get all available roles
  * @returns {Role[]}
  */
-export const getAllRoles = () => ['admin', 'labManager', 'staff', 'viewer'];
+export const getAllRoles = () => ["admin", "ta", "student"];

@@ -33,6 +33,7 @@ import {
   Visibility as ViewerIcon,
 } from '@mui/icons-material';
 import { getRoleDisplayName, getAllRoles } from '../../lib/permissions';
+import { getAllUsers, updateUserRole } from '../../lib/supabaseUsers';
 
 const UsersAdmin = () => {
   const [users, setUsers] = useState([]);
@@ -47,12 +48,24 @@ const UsersAdmin = () => {
   const fetchUsers = async () => {
     _setLoading(true);
     try {
-      const response = await fetch('/api/admin/users');
-      const data = await response.json();
-      if (data.success) {
-        setUsers(data.data);
-      }
-    } catch (_error) {
+      const profilesData = await getAllUsers();
+
+      // Map profiles data to UI format
+      const mappedUsers = profilesData.map(profile => {
+        const nameParts = profile.full_name?.split(' ') || ['', ''];
+
+        return {
+          id: profile.id,
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || '',
+          email: profile.email || 'N/A',
+          role: profile.role || 'student',
+        };
+      });
+
+      setUsers(mappedUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
       showSnackbar('Failed to load users', 'error');
     } finally {
       _setLoading(false);
@@ -61,6 +74,7 @@ const UsersAdmin = () => {
 
   useEffect(() => {
     fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChangeRoleClick = (user) => {
@@ -77,19 +91,12 @@ const UsersAdmin = () => {
 
   const handleSubmit = async () => {
     try {
-      const response = await fetch(`/api/admin/users/${currentUser.id}/role`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        showSnackbar('User role updated successfully', 'success');
-        fetchUsers();
-        handleDialogClose();
-      }
-    } catch (_error) {
+      await updateUserRole(currentUser.id, newRole);
+      showSnackbar('User role updated successfully', 'success');
+      fetchUsers();
+      handleDialogClose();
+    } catch (error) {
+      console.error('Error updating user role:', error);
       showSnackbar('Failed to update user role', 'error');
     }
   };
@@ -150,11 +157,10 @@ const UsersAdmin = () => {
           <Table aria-label="Users table">
             <TableHead>
               <TableRow>
-                <TableCell>ID</TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>ID</TableCell>
                 <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Email</TableCell>
                 <TableCell>Role</TableCell>
-                <TableCell>Last Login</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -163,11 +169,11 @@ const UsersAdmin = () => {
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((user) => (
                   <TableRow key={user.id} hover>
-                    <TableCell>{user.id}</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{user.id}</TableCell>
                     <TableCell sx={{ fontWeight: 500 }}>
                       {user.firstName} {user.lastName}
                     </TableCell>
-                    <TableCell>{user.email}</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{user.email}</TableCell>
                     <TableCell>
                       <Chip
                         icon={getRoleIcon(user.role)}
@@ -175,11 +181,6 @@ const UsersAdmin = () => {
                         color={getRoleColor(user.role)}
                         size="small"
                       />
-                    </TableCell>
-                    <TableCell>
-                      {user.lastLogin
-                        ? new Date(user.lastLogin).toLocaleDateString()
-                        : 'Never'}
                     </TableCell>
                     <TableCell align="right">
                       <Button

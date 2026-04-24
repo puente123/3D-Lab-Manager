@@ -19,6 +19,7 @@ import Footer from "./components/Footer.jsx";
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminProtectedRoute from './components/admin/AdminProtectedRoute';
+import { Navigate } from 'react-router-dom';
 
 // Pages
 import Home from "./pages/Home.jsx";
@@ -27,15 +28,14 @@ import ItemDetail from "./pages/ItemDetail.jsx";
 import Map3d from "./pages/Map3d.jsx"; // Adding 3D viewer page
 import Map3dIndex from "./pages/Map3dIndex.jsx"; // Adding 3D lab grid page
 import Auth from './pages/Auth';
-import Scan from "./pages/Scan.jsx";
+import ResetPassword from './pages/ResetPassword';
 
 // Admin Pages
 import ItemsAdmin from './pages/admin/ItemsAdmin';
 import UsersAdmin from './pages/admin/UsersAdmin';
 import LabsAdmin from './pages/admin/LabsAdmin';
 import IssuesAdmin from './pages/admin/IssuesAdmin';
-import ReportsAdmin from './pages/admin/ReportsAdmin';
-import SettingsAdmin from './pages/admin/SettingsAdmin';
+import ModelsAdmin from './pages/admin/ModelsAdmin';
 
 
 // Material-UI theme configuration matching university standards
@@ -125,12 +125,12 @@ function App() {
               </AdminProtectedRoute>
             }
           >
+            <Route index element={<Navigate to="/admin/items" replace />} />
             <Route path="items" element={<ItemsAdmin />} />
             <Route path="users" element={<UsersAdmin />} />
             <Route path="labs" element={<LabsAdmin />} />
             <Route path="issues" element={<IssuesAdmin />} />
-            <Route path="reports" element={<ReportsAdmin />} />
-            <Route path="settings" element={<SettingsAdmin />} />
+            <Route path="models" element={<ModelsAdmin />} />
           </Route>
 
           {/* Public/User Routes with Main Layout */}
@@ -169,8 +169,8 @@ function App() {
                       <Route path="/item/:id" element={<ProtectedRoute><ItemDetail /></ProtectedRoute>} />
                       <Route path="/map3d" element={<ProtectedRoute><Map3dIndex /></ProtectedRoute>} />
                       <Route path="/map3d/:labId" element={<ProtectedRoute><Map3d /></ProtectedRoute>} />
-                      <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
                       <Route path="/auth" element={<Auth />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
                     </Routes>
                   </Container>
                 </Box>

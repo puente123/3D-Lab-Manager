@@ -15,9 +15,10 @@ import {
 import {
   Inventory as InventoryIcon,
   ViewInAr as ViewInArIcon,
-  QrCodeScanner as QrCodeScannerIcon,
   FiberNew as FiberNewIcon,
   CheckCircle as CheckCircleIcon,
+  Search as SearchIcon,
+  AssignmentReturn as AssignmentReturnIcon,
 } from "@mui/icons-material";
 
 /**
@@ -31,7 +32,7 @@ function Home() {
     {
       title: "Items",
       description:
-        "Search and browse lab equipment inventory. Filter by category, status, and location.",
+        "Browse and search 500+ lab equipment items. Filter by category, check availability, and manage checkouts with QR codes.",
       icon: <InventoryIcon sx={{ fontSize: 40, color: "primary.main" }} />,
       path: "/items",
       color: "primary.main",
@@ -39,33 +40,27 @@ function Home() {
     {
       title: "3D Map",
       description:
-        "Visualize lab layout and locate equipment in 3D space. Perfect for navigation.",
+        "Explore interactive 3D lab environments. Locate equipment in real-time and navigate the Senior Design Engineering Lab.",
       icon: <ViewInArIcon sx={{ fontSize: 40, color: "secondary.main" }} />,
       path: "/map3d",
       color: "secondary.main",
-    },
-    {
-      title: "Scan",
-      description:
-        "Use your camera to scan QR codes on equipment for instant access to details.",
-      icon: <QrCodeScannerIcon sx={{ fontSize: 40, color: "success.main" }} />,
-      path: "/scan",
-      color: "success.main",
     },
   ];
 
   // Changelog data for "What's New" section
   const changelog = [
     {
-      version: "Sprint 2.0",
-      date: "October 2025",
+      version: "Version 1.0 - Launch Release",
+      date: "March 2026",
       items: [
-        "Initial release of 3D Lab Manager",
-        "3D Map Viewer",
-        "Complete equipment inventory system",
-        "QR code scanning functionality",
-        "Responsive design for mobile and desktop",
-        "Full accessibility compliance (WCAG 2.1 AA)",
+        "Browse and search 500+ lab equipment items with advanced filtering",
+        "Check out and return equipment with QR code tracking",
+        "Interactive 3D lab map with real-time item locations",
+        "View checkout history for each equipment item",
+        "Report issues directly from item detail pages",
+        "Secure authentication with password reset functionality",
+        "Mobile-responsive design for on-the-go access",
+        "Admin dashboard for equipment and user management",
       ],
     },
   ];
@@ -99,13 +94,6 @@ function Home() {
           3D Lab Manager
         </Typography>
 
-        <Chip
-          label="Sprint 1"
-          color="primary"
-          variant="outlined"
-          sx={{ mb: 3 }}
-        />
-
         <Typography
           variant="h2"
           component="p"
@@ -113,14 +101,36 @@ function Home() {
             fontSize: { xs: "1.125rem", md: "1.25rem" },
             color: "text.secondary",
             fontWeight: 400,
-            maxWidth: "600px",
+            maxWidth: "700px",
             mx: "auto",
             lineHeight: 1.6,
+            mb: 2,
           }}
         >
-          Browse equipment, locate items, and report issues quickly in the
+          Browse equipment, locate items, and manage checkouts quickly in the
           Senior Design Engineering Lab.
         </Typography>
+
+        <Box sx={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
+          <Chip
+            label="500+ Equipment Items"
+            color="primary"
+            variant="outlined"
+            size="small"
+          />
+          <Chip
+            label="3 Lab Locations"
+            color="primary"
+            variant="outlined"
+            size="small"
+          />
+          <Chip
+            label="Real-time Tracking"
+            color="success"
+            variant="outlined"
+            size="small"
+          />
+        </Box>
       </Box>
 
       {/* Quick Access Cards */}
@@ -222,6 +232,101 @@ function Home() {
             </Box>
           ))}
         </Box>
+      </Box>
+
+      {/* How to Get Started Section */}
+      <Box sx={{ mb: 4 }}>
+        <Typography
+          variant="h2"
+          component="h2"
+          sx={{
+            fontSize: "1.5rem",
+            fontWeight: 600,
+            color: "text.primary",
+            mb: 2,
+            textAlign: { xs: "center", md: "left" },
+          }}
+        >
+          How to Get Started
+        </Typography>
+
+        <Card
+          sx={{
+            border: "1px solid",
+            borderColor: "divider",
+            backgroundColor: "primary.50",
+          }}
+        >
+          <CardContent sx={{ p: 3 }}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+                gap: 4,
+                maxWidth: 800,
+                mx: "auto",
+              }}
+            >
+              {/* Step 1 */}
+              <Box sx={{ textAlign: "center" }}>
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    backgroundColor: "primary.main",
+                    color: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mx: "auto",
+                    mb: 2,
+                  }}
+                >
+                  <SearchIcon sx={{ fontSize: 36 }} />
+                </Box>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, mb: 1, color: "primary.dark" }}
+                >
+                  1. Browse Items
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Search the equipment catalog or explore the 3D map to find what you need.
+                </Typography>
+              </Box>
+
+              {/* Step 2 */}
+              <Box sx={{ textAlign: "center" }}>
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    backgroundColor: "success.main",
+                    color: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mx: "auto",
+                    mb: 2,
+                  }}
+                >
+                  <AssignmentReturnIcon sx={{ fontSize: 36 }} />
+                </Box>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, mb: 1, color: "primary.dark" }}
+                >
+                  2. Check Out & Return
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Check out items for your project and return them when done.
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
       </Box>
 
       {/* What's New Section */}

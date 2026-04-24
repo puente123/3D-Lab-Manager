@@ -29,8 +29,9 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { can } from '../../lib/permissions';
+import { getAllIssues, updateIssueStatus } from '../../lib/supabaseIssues';
 
-const STATUSES = ['Open', 'In Progress', 'Resolved'];
+const STATUSES = ['open', 'in_progress', 'resolved'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 
 const IssuesAdmin = () => {
@@ -50,12 +51,24 @@ const IssuesAdmin = () => {
   const fetchIssues = async () => {
     _setLoading(true);
     try {
-      const response = await fetch('/api/admin/issues');
-      const data = await response.json();
-      if (data.success) {
-        setIssues(data.data);
-      }
-    } catch (_error) {
+      const data = await getAllIssues();
+      // Map Supabase data to UI format
+      const mappedIssues = data.map(issue => ({
+        id: issue.id,
+        title: `${issue.type} - ${issue.equipment?.name || 'Unknown Item'}`,
+        status: issue.status || 'open',
+        priority: 'Medium', // Default priority since we don't have it in DB
+        lab: issue.equipment?.lab_id || 'N/A',
+        item: issue.equipment?.name || 'Unknown',
+        assignee: null, // We don't have assignee in current schema
+        updatedAt: issue.created_at,
+        notes: issue.notes,
+        equipment_id: issue.equipment_id,
+        type: issue.type,
+      }));
+      setIssues(mappedIssues);
+    } catch (error) {
+      console.error('Error fetching issues:', error);
       showSnackbar('Failed to load issues', 'error');
     } finally {
       _setLoading(false);
@@ -64,6 +77,7 @@ const IssuesAdmin = () => {
 
   useEffect(() => {
     fetchIssues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleStatusChange = (issue) => {
@@ -92,19 +106,12 @@ const IssuesAdmin = () => {
 
   const handleSubmit = async () => {
     try {
-      const response = await fetch(`/api/admin/issues/${currentIssue.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, assignee: newAssignee }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        showSnackbar('Issue updated successfully', 'success');
-        fetchIssues();
-        handleDialogClose();
-      }
-    } catch (_error) {
+      await updateIssueStatus(currentIssue.id, newStatus);
+      showSnackbar('Issue updated successfully', 'success');
+      fetchIssues();
+      handleDialogClose();
+    } catch (error) {
+      console.error('Error updating issue:', error);
       showSnackbar('Failed to update issue', 'error');
     }
   };
@@ -153,15 +160,22 @@ const IssuesAdmin = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Open':
+      case 'open':
         return 'error';
-      case 'In Progress':
+      case 'in_progress':
         return 'warning';
-      case 'Resolved':
+      case 'resolved':
         return 'success';
       default:
         return 'default';
     }
+  };
+
+  const formatStatus = (status) => {
+    if (!status) return 'Open';
+    return status.split('_').map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
   };
 
   const groupedIssues = STATUSES.reduce((acc, status) => {
@@ -184,7 +198,7 @@ const IssuesAdmin = () => {
       {/* Kanban Board */}
       <Grid container spacing={2}>
         {STATUSES.map((status) => (
-          <Grid item xs={12} md={4} key={status}>
+          <Grid item xs={12} sm={6} lg={4} key={status}>
             <Card sx={{ bgcolor: 'background.default', height: '100%' }}>
               <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -193,11 +207,11 @@ const IssuesAdmin = () => {
                     size="small"
                     color={getStatusColor(status)}
                   />
-                  {status}
+                  {formatStatus(status)}
                 </Typography>
               </Box>
               <Divider />
-              <Box sx={{ p: 2, maxHeight: '70vh', overflow: 'auto' }}>
+              <Box sx={{ p: 2, maxHeight: { xs: '50vh', md: '70vh' }, overflow: 'auto' }}>
                 <Stack spacing={2}>
                   {groupedIssues[status].map((issue) => (
                     <Card key={issue.id} variant="outlined" sx={{ '&:hover': { boxShadow: 2 } }}>

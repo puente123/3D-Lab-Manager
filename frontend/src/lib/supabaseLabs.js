@@ -5,10 +5,7 @@ import { supabase } from "./supabase";
  * @returns {Promise<Array>} Array of lab objects
  */
 export async function getLabs() {
-  const { data, error } = await supabase
-    .from("labs")
-    .select("*")
-    .order("name");
+  const { data, error } = await supabase.from("labs").select("*").order("name");
 
   if (error) throw error;
 
@@ -41,6 +38,7 @@ export async function getLabById(id) {
   // Map to frontend structure
   return {
     id: data.id,
+    lab_code: data.lab_code,
     name: data.name,
     blurb: data.blurb,
     modelPath: data.model_path,
@@ -101,7 +99,8 @@ export async function updateLab(id, updates) {
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.blurb !== undefined) dbUpdates.blurb = updates.blurb;
   if (updates.modelPath !== undefined) dbUpdates.model_path = updates.modelPath;
-  if (updates.thumbnailUrl !== undefined) dbUpdates.thumbnail_url = updates.thumbnailUrl;
+  if (updates.thumbnailUrl !== undefined)
+    dbUpdates.thumbnail_url = updates.thumbnailUrl;
 
   const { data, error } = await supabase
     .from("labs")
